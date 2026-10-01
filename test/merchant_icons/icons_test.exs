@@ -7,6 +7,8 @@ defmodule MerchantIcons.IconsTest do
   # and is never written to priv/icons.
   @minimal ~s|<svg viewBox="0 0 1 1"></svg>|
 
+  @icons_dir Path.expand("../../priv/icons", __DIR__)
+
   defp invalid(content), do: Icons.validate(content)
 
   defp with_view_box(inner), do: ~s|<svg viewBox="0 0 1 1">#{inner}</svg>|
@@ -124,6 +126,109 @@ defmodule MerchantIcons.IconsTest do
     end
   end
 
+  describe "validate/1 hardening" do
+    test "rejects embedded HTML elements" do
+      for tag <- ["iframe", "object", "embed", "IFRAME"] do
+        assert invalid(with_view_box("<#{tag} srcdoc=x></#{tag}>")) ==
+                 {:error, :embedded_content}
+      end
+    end
+
+    test "rejects javascript: hidden by character references or whitespace" do
+      assert invalid(with_view_box(~s|<a href="jav&#97;script:x()"/>|)) == {:error, :entity}
+      assert invalid(with_view_box(~s|<a href="javascript&colon;x()"/>|)) == {:error, :entity}
+      assert invalid(with_view_box("<a href=\"java\tscript:x()\"/>")) == {:error, :javascript_uri}
+      assert invalid(with_view_box("<a href=\"java\nscript:x()\"/>")) == {:error, :javascript_uri}
+    end
+
+    test "rejects any ampersand" do
+      assert invalid(with_view_box("<text>&amp;</text>")) == {:error, :entity}
+    end
+
+    test "rejects data: URIs" do
+      assert invalid(with_view_box(~s|<image href="data:image/png;base64,AAAA"/>|)) ==
+               {:error, :data_uri}
+    end
+
+    test "rejects a doctype" do
+      assert invalid(with_view_box("<!DOCTYPE svg>")) == {:error, :doctype}
+    end
+
+    test "rejects event handlers after a form feed" do
+      assert invalid(~s|<svg viewBox="0 0 1 1"\fonload="x()"></svg>|) == {:error, :event_handler}
+    end
+
+    test "rejects animations that set an event handler, however they are written" do
+      for markup <- [
+            ~s|<set attributeName = "onclick" to="x()"/>|,
+            ~s|<set attributeName=onclick to="x()"/>|,
+            ~s|<set attributeName='onclick' to="x()"/>|
+          ] do
+        assert invalid(with_view_box(markup)) == {:error, :event_handler}
+      end
+    end
+
+    test "rejects protocol-relative and other external schemes" do
+      for url <- ["//example.test/a.png", "ftp://example.test/a.png", "file:///etc/passwd"] do
+        assert invalid(with_view_box(~s|<image href="#{url}"/>|)) == {:error, :external_reference}
+      end
+    end
+
+    test "rejects references that do not point inside the document" do
+      for markup <- [
+            ~s|<image href="a.png"/>|,
+            ~s|<image src="a.png"/>|,
+            ~s|<use xlink:href="/a.svg#b"/>|,
+            ~s|<style>.a{fill:url(a.svg#b)}</style>|,
+            ~s|<style>@import "a.css";</style>|
+          ] do
+        assert invalid(with_view_box(markup)) == {:error, :external_reference}
+      end
+    end
+
+    test "accepts references to ids inside the document" do
+      markup =
+        with_view_box(
+          ~s|<defs><linearGradient id="a"/></defs>| <>
+            ~s|<use href="#a"/><use xlink:href='#a'/>| <>
+            ~s|<rect fill="url(#a)"/><rect fill="url('#a')"/>|
+        )
+
+      assert Icons.validate(markup) == {:ok, markup}
+    end
+
+    test "nothing may follow the closing tag" do
+      assert invalid(@minimal <> "<p>x</p>") == {:error, :trailing_content}
+      assert invalid(@minimal <> "<iframe></iframe>") == {:error, :trailing_content}
+    end
+
+    test "accepts exactly the size limit and rejects one byte more" do
+      padding = String.duplicate(" ", Icons.max_bytes() - byte_size(@minimal))
+      exact = ~s|<svg viewBox="0 0 1 1">| <> padding <> "</svg>"
+
+      assert byte_size(exact) == Icons.max_bytes()
+      assert Icons.validate(exact) == {:ok, exact}
+      assert invalid(exact <> " ") == {:error, :too_large}
+    end
+
+    test "the size is checked before the content" do
+      assert invalid(String.duplicate(<<0xFF>>, Icons.max_bytes() + 1)) == {:error, :too_large}
+    end
+
+    test "every icon shipped in priv/icons is valid" do
+      files = Icons.files(@icons_dir)
+
+      assert files != []
+
+      for file <- files do
+        content = File.read!(file)
+
+        assert Icons.validate(content) == {:ok, content},
+               "#{Path.basename(file)} is not a valid icon"
+      end
+    end
+  end
+
   describe "embed!/2" do
     setup do
       dir = Path.join(System.tmp_dir!(), "merchant_icons_#{System.unique_integer([:positive])}")
@@ -177,6 +282,20 @@ defmodule MerchantIcons.IconsTest do
         assert message(fn -> Icons.embed!([definition(%{icon: icon_name})], dir) end) =~
                  "not a valid icon name"
       end
+    end
+
+    test "a link instead of a regular file stops the build", %{dir: dir} do
+      File.write!(Path.join(dir, "real.txt"), @minimal)
+      :ok = File.ln_s("real.txt", Path.join(dir, "linked.svg"))
+
+      assert message(fn -> Icons.embed!([definition(%{icon: "linked"})], dir) end) =~
+               "regular file"
+    end
+
+    test "an oversized file stops the build without being read", %{dir: dir} do
+      File.write!(Path.join(dir, "huge.svg"), String.duplicate("a", Icons.max_bytes() + 1))
+
+      assert message(fn -> Icons.embed!([definition(%{icon: "huge"})], dir) end) =~ "too_large"
     end
 
     test "error messages never contain the content of a file", %{dir: dir} do
