@@ -22,9 +22,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Minimum version declared in mix.exs (`elixir: "~> 1.20"`).
+          # Minimum version declared in mix.exs (~> 1.20).
           - elixir: "1.20.0"
             otp: "28"
+
           # Latest release of the same minor.
           - elixir: "1.20"
             otp: "28"
@@ -40,8 +41,8 @@ jobs:
           elixir-version: ${{ matrix.elixir }}
           otp-version: ${{ matrix.otp }}
 
-      # The key uses the resolved versions and the lockfile, so a new patch release or a
-      # dependency change never reuses a stale build.
+      # The key uses the resolved versions and the lockfile, so a new patch
+      # release or a dependency change never reuses a stale build.
       - name: Cache deps and build
         uses: actions/cache@v4
         with:
@@ -56,8 +57,8 @@ jobs:
       - name: Check formatting
         run: mix format --check-formatted
 
-      # --force: with a cached _build, unchanged files are not recompiled and their warnings
-      # would not be reported. Compiling also validates every SVG in priv/icons.
+      # --force ensures unchanged files are recompiled even with a cached _build.
+      # Compilation also validates every SVG in priv/icons.
       - name: Compile without warnings
         run: mix compile --force --warnings-as-errors
 
