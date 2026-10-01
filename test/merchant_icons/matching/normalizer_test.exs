@@ -14,9 +14,9 @@ defmodule MerchantIcons.Matching.NormalizerTest do
   describe "tokens/1 examples" do
     test "the documented descriptions" do
       assert_tokens([
-        {"DL * GOOGLE A0000021232", ["dl", "google", "a", "0000021232"]},
-        {"Google ADS2397919998", ["google", "ads", "2397919998"]},
-        {"Google A000002123249", ["google", "a", "000002123249"]},
+        {"DL * GOOGLE A0000000123", ["dl", "google", "a", "0000000123"]},
+        {"Google ADS1234567890", ["google", "ads", "1234567890"]},
+        {"Google A000000000123", ["google", "a", "000000000123"]},
         {"Uber UBER * PENDING", ["uber", "uber", "pending"]},
         {"DL * UberRides", ["dl", "uberrides"]},
         {"ADOBE", ["adobe"]}
@@ -34,7 +34,7 @@ defmodule MerchantIcons.Matching.NormalizerTest do
         {"C6BANK", ["c", "6", "bank"]},
         {"7ELEVEN", ["7", "eleven"]},
         {"0042", ["0042"]},
-        {"A0000021232", ["a", "0000021232"]}
+        {"A0000000123", ["a", "0000000123"]}
       ])
     end
 
@@ -187,7 +187,7 @@ defmodule MerchantIcons.Matching.NormalizerTest do
 
   describe "tokens/1 properties on examples" do
     @inputs [
-              "DL * GOOGLE A0000021232",
+              "DL * GOOGLE A0000000123",
               "Uber UBER * PENDING",
               "C6BANK",
               "McDonald\u{2019}s",

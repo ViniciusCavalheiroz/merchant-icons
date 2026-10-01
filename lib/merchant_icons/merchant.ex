@@ -21,7 +21,7 @@ defmodule MerchantIcons.Merchant do
 
   ## Examples
 
-      iex> {:ok, merchant} = MerchantIcons.resolve("DL * GOOGLE A0000021232")
+      iex> {:ok, merchant} = MerchantIcons.resolve("DL * GOOGLE A0000000123")
       iex> {merchant.id, merchant.name}
       {"google", "Google"}
       iex> "<svg" <> _ = merchant.icon
