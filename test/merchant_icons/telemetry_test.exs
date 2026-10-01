@@ -20,7 +20,7 @@ defmodule MerchantIcons.TelemetryTest do
   end
 
   test "a known merchant emits :merchant_resolved" do
-    assert {:ok, _merchant} = MerchantIcons.resolve("Google ADS2397919998")
+    assert {:ok, _merchant} = MerchantIcons.resolve("Google ADS1234567890")
 
     assert_receive {:telemetry, @event, %{count: 1}, %{result: :merchant_resolved}}
     refute_receive {:telemetry, _, _, _}
@@ -34,7 +34,7 @@ defmodule MerchantIcons.TelemetryTest do
   end
 
   test "the description does not appear anywhere in the event" do
-    descriptions = ["DL * GOOGLE A0000021232", "PADARIA DO ZE 0042"]
+    descriptions = ["DL * GOOGLE A0000000123", "PADARIA DO ZE 0042"]
 
     for description <- descriptions do
       MerchantIcons.resolve(description)
@@ -47,7 +47,7 @@ defmodule MerchantIcons.TelemetryTest do
 
       dumped = inspect({event, measurements, metadata}, limit: :infinity)
 
-      for fragment <- ["0000021232", "PADARIA", "ZE 0042", "DL *"] do
+      for fragment <- ["0000000123", "PADARIA", "ZE 0042", "DL *"] do
         refute dumped =~ fragment
       end
     end

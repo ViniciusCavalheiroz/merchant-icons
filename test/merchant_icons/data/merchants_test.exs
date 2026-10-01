@@ -102,7 +102,7 @@ defmodule MerchantIcons.Data.MerchantsTest do
       "FACEBOOK",
       "facebk",
       "Facebook Ads",
-      "FACEBK * AB12CD34EF",
+      "FACEBK * XX00YY00ZZ",
       "FACEBOOK * TEMP HOLD ZZZZ"
     ]
 

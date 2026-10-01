@@ -74,7 +74,7 @@ defmodule MerchantIcons.SecurityTest do
       output =
         capture_log(fn ->
           for input <- inputs_with_canary(), do: MerchantIcons.resolve(input)
-          MerchantIcons.resolve("DL * GOOGLE A0000021232")
+          MerchantIcons.resolve("DL * GOOGLE A0000000123")
           MerchantIcons.resolve("")
           MerchantIcons.resolve(nil)
         end)

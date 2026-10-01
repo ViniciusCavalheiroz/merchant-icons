@@ -19,7 +19,7 @@ defmodule MerchantIcons.ComponentsTest do
   end
 
   test "defaults the img alt text to the resolved merchant name" do
-    html = render_icon(name: "DL * GOOGLE A0000021232")
+    html = render_icon(name: "DL * GOOGLE A0000000123")
 
     assert html =~ "alt=\"Google\""
   end

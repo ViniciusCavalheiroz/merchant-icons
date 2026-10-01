@@ -238,7 +238,7 @@ The library does not use `Logger`.
 * **Tokens:** the text is split at separators and at letter/digit boundaries. CamelCase is not
   split, so `UberRides` is a single token.
 * **Processor prefixes:** leading `dl`, `dm`, `ebn` or `ppro` tokens are ignored (also when
-  repeated), so `DL * GOOGLE A0000021232` is matched as `GOOGLE A 0000021232`. Any other leading
+  repeated), so `DL * GOOGLE A0000000123` is matched as `GOOGLE A 0000000123`. Any other leading
   token (for example `PAYPAL`) is not skipped, and a prefix in the middle of a description is not
   ignored.
 * **Aliases** are token sequences of two kinds:

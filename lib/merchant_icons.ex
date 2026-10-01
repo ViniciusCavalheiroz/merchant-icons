@@ -125,7 +125,7 @@ defmodule MerchantIcons do
 
   ## Examples
 
-      iex> {:ok, merchant} = MerchantIcons.resolve("Google ADS2397919998")
+      iex> {:ok, merchant} = MerchantIcons.resolve("Google ADS1234567890")
       iex> {merchant.id, merchant.name}
       {"google", "Google"}
 

@@ -8,13 +8,13 @@ defmodule MerchantIcons.Test.Helpers.Corpus do
   @doc "Descriptions that resolve in production, with the expected merchant id."
   def resolving do
     [
-      {"Google ADS2397919998", "google"},
-      {"Google A000002123249", "google"},
+      {"Google ADS1234567890", "google"},
+      {"Google A000000000123", "google"},
       {"GOOGLE ADS 123", "google"},
       {"google", "google"},
       {"Google One", "google_one"},
       {"Google TEMPORARY HOLD", "google"},
-      {"DL * GOOGLE A0000021232", "google"},
+      {"DL * GOOGLE A0000000123", "google"},
       {"DL * UberRides", "uber"},
       {"Uber UBER * PENDING", "uber"},
       {"Uber Trip Help", "uber"},
@@ -26,8 +26,8 @@ defmodule MerchantIcons.Test.Helpers.Corpus do
       {"ADOBE * ADOBE", "adobe"},
       {"PPRO * ADOBE", "adobe"},
       {"EBN * ADOBE", "adobe"},
-      {"DM * Slack T000AAA0000", "slack"},
-      {"FACEBK * AB12CD34EF", "facebook"},
+      {"DM * Slack T0000000000", "slack"},
+      {"FACEBK * XX00YY00ZZ", "facebook"},
       {"FACEBK * TEMP HOLD ZZZZ", "facebook"},
       {"Microsoft-G000000001", "microsoft"},
       {"ANTHROPIC * CLAUDE TEAM", "anthropic"},
@@ -56,7 +56,7 @@ defmodule MerchantIcons.Test.Helpers.Corpus do
       "MY GOOGLE ADS",
       "NOT ADOBE",
       # a leading token that is not an approved processor prefix is not skipped
-      "XY * GOOGLE A0000021232",
+      "XY * GOOGLE A0000000123",
       "PAYPAL * GITHUB INC",
       # documented limitation: names glued to other letters are not matched
       "GOOGLEADS123",
