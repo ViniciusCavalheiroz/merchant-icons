@@ -1,4 +1,4 @@
-defmodule Iconify.Normalizer do
+defmodule MerchantIcons.Matching.Normalizer do
   @moduledoc false
 
   # Turns an untrusted transaction description into a list of tokens:
@@ -79,7 +79,7 @@ defmodule Iconify.Normalizer do
   defp reject_blank({:ok, text}) do
     case String.match?(text, ~r/\A[\s\p{Z}\p{Cc}]*\z/u) do
       true ->
-         {:error, :blank}
+        {:error, :blank}
 
       false ->
         {:ok, text}

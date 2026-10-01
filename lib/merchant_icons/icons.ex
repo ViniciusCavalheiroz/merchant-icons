@@ -1,13 +1,14 @@
-defmodule Iconify.Icons do
+defmodule MerchantIcons.Icons do
   @moduledoc false
 
   # Compile-time loading and validation of the SVG icons shipped in `priv/icons`.
   #
   #     Icons.embed!(definitions, dir)
   #
-  # A merchant definition may reference an icon with `icon: "slug"`, where the slug is the name
-  # of `<dir>/<slug>.svg`. `embed!/2` replaces the slug with the SVG markup, so the public
-  # `Merchant.icon` holds the markup itself. A definition without a reference gets `icon: nil`.
+  # A merchant definition may reference an icon with `icon: "icon_name"`, where the icon name is
+  # the file name of `<dir>/<icon_name>.svg` without the extension. `embed!/2` replaces the icon
+  # name with the SVG markup, so the public `Merchant.icon` holds the markup itself. A definition
+  # without a reference gets `icon: nil`.
   #
   # This module keeps no state and runs only while the library compiles: the SVGs end up as
   # literals of the module that embeds them. Nothing reads the icons directory at runtime.
@@ -20,7 +21,7 @@ defmodule Iconify.Icons do
   # The checks are deliberately strict and crude. A file that trips one of them has to be
   # cleaned (for example metadata with external URLs removed) before it can be shipped.
 
-  alias Iconify.Index
+  alias MerchantIcons.Matching.Index
 
   @type reason ::
           :empty
@@ -63,7 +64,7 @@ defmodule Iconify.Icons do
   Replaces the icon reference of every definition with the validated SVG markup.
 
   Raises `ArgumentError` when a referenced file is missing or invalid, or when a file in the
-  directory is not referenced by any merchant. Messages only mention slugs, ids and reasons,
+  directory is not referenced by any merchant. Messages only mention icon names, ids and reasons,
   never the content of a file.
   """
   @spec embed!([Index.definition()], Path.t()) :: [Index.definition()]
@@ -80,46 +81,44 @@ defmodule Iconify.Icons do
     |> ensure_not_empty()
     |> ensure_svg_root()
     |> ensure_view_box()
-    |> ensure_safe()
+    |> ensure_no_active_content()
   end
 
   # embed
 
-  defp embed_icon!(%{icon: slug} = definition, dir) when is_binary(slug) do
-    %{definition | icon: read_svg!(definition, slug, dir)}
-  end
+  defp embed_icon!(%{icon: icon_name} = definition, dir) when is_binary(icon_name),
+    do: %{definition | icon: read_svg!(definition, icon_name, dir)}
 
-  defp embed_icon!(definition, _dir), do: Map.put(definition, :icon, nil)
+  defp embed_icon!(definition, _dir),
+    do: Map.put(definition, :icon, nil)
 
-  defp read_svg!(definition, slug, dir) do
-    where = "icon #{inspect(slug)} of merchant #{inspect(Map.get(definition, :id))}"
+  defp read_svg!(definition, icon_name, dir) do
+    where = "icon #{inspect(icon_name)} of merchant #{inspect(Map.get(definition, :id))}"
 
-    ensure!(slug?(slug), "#{where} is not a valid slug")
+    ensure!(valid_icon_name?(icon_name), "#{where} is not a valid icon name")
 
-    case File.read(Path.join(dir, slug <> ".svg")) do
-      {:ok, content} ->
-        validated!(content, where)
-
-      {:error, :enoent} ->
-        raise ArgumentError, "#{where} has no file #{slug}.svg"
-
-      {:error, reason} ->
-        raise ArgumentError, "#{where} could not be read (#{reason})"
+    dir
+    |> Path.join(icon_name <> ".svg")
+    |> File.read()
+    |> case do
+      {:ok, content} -> validated!(content, where)
+      {:error, :enoent} -> raise ArgumentError, "#{where} has no file #{icon_name}.svg"
+      {:error, reason} -> raise ArgumentError, "#{where} could not be read (#{reason})"
     end
   end
 
   defp validated!(content, where) do
     case validate(content) do
-      {:ok, svg} ->
-         svg
-
-      {:error, reason} ->
-        raise ArgumentError, "#{where} is invalid (#{reason})"
+      {:ok, svg} -> svg
+      {:error, reason} -> raise ArgumentError, "#{where} is invalid (#{reason})"
     end
   end
 
   defp reject_unreferenced_files!(definitions, dir) do
-    referenced = for %{icon: slug} when is_binary(slug) <- definitions, into: MapSet.new(), do: slug
+    referenced =
+      for %{icon: icon_name} when is_binary(icon_name) <- definitions,
+          into: MapSet.new(),
+          do: icon_name
 
     unreferenced =
       dir
@@ -133,51 +132,47 @@ defmodule Iconify.Icons do
     )
   end
 
-  # lowercase ASCII letters, digits and underscores only, so a slug cannot leave the directory
-  defp slug?(slug) do
-    slug != "" and slug |> :binary.bin_to_list() |> Enum.all?(&(&1 in ?a..?z or &1 in ?0..?9 or &1 == ?_))
-  end
+  # Lowercase ASCII letters, digits and underscores only, so an icon name cannot leave the
+  # icons directory.
+  defp valid_icon_name?(""), do: false
+
+  defp valid_icon_name?(icon_name),
+    do:
+      icon_name
+      |> :binary.bin_to_list()
+      |> Enum.all?(&(&1 in ?a..?z or &1 in ?0..?9 or &1 == ?_))
 
   defp ensure!(true, _message), do: :ok
   defp ensure!(false, message), do: raise(ArgumentError, message)
 
   # validate
 
-  # First step: receives the raw content and starts the pipeline.
   defp ensure_utf8(content) do
     case String.valid?(content) do
-      true ->
-        {:ok, content}
-
-      false ->
-        {:error, :invalid_utf8}
+      true -> {:ok, content}
+      false -> {:error, :invalid_utf8}
     end
   end
 
-  defp ensure_not_empty({:error, _reason} = error), do: error
+  defp ensure_not_empty({:error, _} = error), do: error
 
   defp ensure_not_empty({:ok, content} = ok) do
     case String.trim(content) do
-      "" ->
-        {:error, :empty}
-
-      _markup -> ok
+      "" -> {:error, :empty}
+      _ -> ok
     end
   end
 
-  # The root tag must be `<svg` itself: no XML prolog, doctype or comment before it.
-  defp ensure_svg_root({:error, _reason} = error), do: error
+  defp ensure_svg_root({:error, _} = error), do: error
 
   defp ensure_svg_root({:ok, content} = ok) do
     case String.trim_leading(content) do
       <<"<svg", next, _rest::binary>> when next in [?\s, ?\t, ?\n, ?\r, ?>, ?/] -> ok
-      
-      _other -> {:error, :not_svg}
+      _ -> {:error, :not_svg}
     end
   end
 
-  # `viewBox` is case sensitive in SVG and is what lets the icon scale with CSS.
-  defp ensure_view_box({:error, _reason} = error), do: error
+  defp ensure_view_box({:error, _} = error), do: error
 
   defp ensure_view_box({:ok, content} = ok) do
     [root_tag | _rest] = :binary.split(content, ">")
@@ -188,9 +183,10 @@ defmodule Iconify.Icons do
     end
   end
 
-  defp ensure_safe({:error, _reason} = error), do: error
+  # Rejects content that could execute code or reach the network.
+  defp ensure_no_active_content({:error, _} = error), do: error
 
-  defp ensure_safe({:ok, content} = ok) do
+  defp ensure_no_active_content({:ok, content} = ok) do
     lowered = String.downcase(content)
 
     checks = [&forbidden_fragment/1, &event_handler/1, &external_reference/1]
@@ -200,6 +196,8 @@ defmodule Iconify.Icons do
       reason -> {:error, reason}
     end
   end
+
+  # active content checks
 
   defp forbidden_fragment(lowered) do
     Enum.find_value(@forbidden_fragments, &fragment_reason(&1, lowered))
@@ -230,22 +228,16 @@ defmodule Iconify.Icons do
     attribute_assignment?(binary_part(lowered, rest_start, byte_size(lowered) - rest_start))
   end
 
-  # `on` followed by at least one letter and then `=` is an event handler attribute.
-  defp attribute_assignment?(<<letter, rest::binary>>) when letter in ?a..?z do
-    attribute_name_rest?(rest)
-  end
+  defp attribute_assignment?(<<letter, rest::binary>>) when letter in ?a..?z,
+    do: attribute_name_rest?(rest)
 
   defp attribute_assignment?(_rest), do: false
 
-  defp attribute_name_rest?(<<letter, rest::binary>>) when letter in ?a..?z do
-    attribute_name_rest?(rest)
-  end
+  defp attribute_name_rest?(<<letter, rest::binary>>) when letter in ?a..?z,
+    do: attribute_name_rest?(rest)
 
-  defp attribute_name_rest?(rest) do
-    rest
-    |> String.trim_leading()
-    |> String.starts_with?("=")
-  end
+  defp attribute_name_rest?(rest),
+    do: rest |> String.trim_leading() |> String.starts_with?("=")
 
   defp external_reference(lowered) do
     without_namespaces = Enum.reduce(@namespaces, lowered, &String.replace(&2, &1, ""))

@@ -1,6 +1,6 @@
-defmodule Iconify.Merchant do
+defmodule MerchantIcons.Merchant do
   @moduledoc """
-  A merchant known to Iconify.
+  A merchant known to MerchantIcons.
 
   The struct only ever contains data from the merchant dataset. It never contains any part of
   the transaction description that was resolved.
@@ -14,12 +14,12 @@ defmodule Iconify.Merchant do
     * `:icon` - the complete SVG markup of the merchant logo, or `nil` when the merchant has no
       icon. It is trusted, static content shipped with the library: nothing is fetched and
       nothing depends on the network or the file system at runtime. Render it with
-      `merchant.icon`; there is no URL, path or slug to resolve.
+      `merchant.icon`; there is no URL, path or icon name to resolve.
 
   The icon is left out of `inspect/1` because of its size. When serializing a merchant, pick
   the fields you need instead of the whole struct.
 
-  New fields may be added in minor versions. Match on the keys you need (`%Iconify.Merchant{id:
+  New fields may be added in minor versions. Match on the keys you need (`%MerchantIcons.Merchant{id:
   id}`) instead of assuming the complete set of fields.
   """
 
@@ -27,7 +27,7 @@ defmodule Iconify.Merchant do
   @enforce_keys [:id, :name]
   defstruct [:id, :name, icon: nil]
 
-  @typedoc "A merchant known to Iconify. `icon` is SVG markup, or `nil` without an icon."
+  @typedoc "A merchant known to MerchantIcons. `icon` is SVG markup, or `nil` without an icon."
   @type t :: %__MODULE__{
           id: String.t(),
           name: String.t(),

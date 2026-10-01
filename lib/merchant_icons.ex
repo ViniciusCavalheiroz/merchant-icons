@@ -1,8 +1,8 @@
-defmodule Iconify do
+defmodule MerchantIcons do
   @moduledoc """
   Identifies the merchant behind a financial transaction description and provides its icon.
 
-  Iconify only identifies merchants and returns the data an application needs to display the
+  MerchantIcons only identifies merchants and returns the data an application needs to display the
   company icon. It does not deal with amounts, currencies, categories or any other financial
   data: the description is just the input used to identify the merchant.
 
@@ -15,10 +15,12 @@ defmodule Iconify do
 
   `resolve/1` returns one of:
 
-    * `{:ok, %Iconify.Merchant{}}`
+    * `{:ok, %MerchantIcons.Merchant{}}`
+    * `{:ok, :unknown}` - a valid description for which no merchant could be identified
     * `{:error, code, message}`
 
-  The error tuple always has three elements. The `code` is the stable identifier to branch on.
+  An unknown merchant is not an error: it means the dataset does not cover it yet. The error
+  tuple always has three elements. The `code` is the stable identifier to branch on.
   The `message` is informative English text and is not part of the contract. No message
   contains the description or any other input.
 
@@ -26,7 +28,6 @@ defmodule Iconify do
   |-----------------------|------------------------------------------------------------------|
   | `:invalid_input`      | not a binary, invalid UTF-8, or empty/blank                      |
   | `:input_too_large`    | larger than the input limit (see below)                          |
-  | `:unknown_merchant`   | valid description, no merchant could be identified               |
   | `:ambiguous_merchant` | several merchants match and no rule picks one                    |
 
   The set of codes is open: new codes may be added in minor versions, so keep a clause that
@@ -43,10 +44,24 @@ defmodule Iconify do
   and scaled with CSS (every icon has a `viewBox`). Each file is validated at compile time:
   scripts, event handlers, `foreignObject`, entities and external references are rejected.
 
+  ## Telemetry
+
+  `resolve/1` emits one `:telemetry` event when it identifies a merchant or concludes that the
+  merchant is unknown:
+
+    * event: `[:merchant_icons, :resolve]`
+    * measurements: `%{count: 1}`
+    * metadata: `%{result: :merchant_resolved}` or `%{result: :merchant_unknown}`
+
+  The event never carries the description, the merchant or any other input. Validation errors
+  (`:invalid_input`, `:input_too_large`) and `:ambiguous_merchant` do not emit events in this
+  version. The library does not log, store or aggregate anything: the application decides
+  whether to attach a handler. Without a handler, `resolve/1` behaves the same.
+
   ## Input handling
 
   Every description is treated as untrusted data. `resolve/1` never raises because of its input.
-  Descriptions larger than #{Iconify.Normalizer.max_input_bytes()} bytes are rejected, not
+  Descriptions larger than #{MerchantIcons.Matching.Normalizer.max_input_bytes()} bytes are rejected, not
   truncated. This limit is provisional and may change before the first release.
 
   ## Matching
@@ -64,19 +79,19 @@ defmodule Iconify do
   remain, the result is `:ambiguous_merchant`. There is no substring matching.
   """
 
-  alias Iconify.Error
-  alias Iconify.Icons
-  alias Iconify.Index
-  alias Iconify.Matcher
-  alias Iconify.Merchant
-  alias Iconify.Merchants
-  alias Iconify.Normalizer
+  alias MerchantIcons.Data.Merchants
+  alias MerchantIcons.Error
+  alias MerchantIcons.Icons
+  alias MerchantIcons.Matching.Index
+  alias MerchantIcons.Matching.Matcher
+  alias MerchantIcons.Matching.Normalizer
+  alias MerchantIcons.Merchant
 
   @typedoc """
   Stable identifier of an error. The set of codes is open to additions in minor versions.
   """
   @type error_code ::
-          :invalid_input | :input_too_large | :unknown_merchant | :ambiguous_merchant
+          :invalid_input | :input_too_large | :ambiguous_merchant
 
   @typedoc """
   Error tuple returned by `resolve/1`. The second element is the stable code and the third is
@@ -101,47 +116,59 @@ defmodule Iconify do
 
   ## Examples
 
-      iex> {:ok, merchant} = Iconify.resolve("Google ADS2397919998")
+      iex> {:ok, merchant} = MerchantIcons.resolve("Google ADS2397919998")
       iex> {merchant.id, merchant.name}
       {"google", "Google"}
 
-      iex> {:ok, merchant} = Iconify.resolve("ADOBE")
+      iex> {:ok, merchant} = MerchantIcons.resolve("ADOBE")
       iex> {merchant.id, merchant.name}
       {"adobe", "Adobe"}
 
-      iex> {:error, :unknown_merchant, message} = Iconify.resolve("PADARIA DO ZE 0042")
+      iex> MerchantIcons.resolve("PADARIA DO ZE 0042")
+      {:ok, :unknown}
+
+      iex> {:error, :invalid_input, message} = MerchantIcons.resolve("   ")
       iex> is_binary(message)
       true
 
-      iex> {:error, :invalid_input, message} = Iconify.resolve("   ")
-      iex> is_binary(message)
-      true
-
-      iex> {:error, :invalid_input, message} = Iconify.resolve(nil)
+      iex> {:error, :invalid_input, message} = MerchantIcons.resolve(nil)
       iex> is_binary(message)
       true
 
   Works naturally with pattern matching. Branch on the code, never on the message:
 
-      iex> case Iconify.resolve("ADOBE 12345") do
+      iex> case MerchantIcons.resolve("ADOBE 12345") do
+      ...>   {:ok, :unknown} -> nil
       ...>   {:ok, merchant} -> merchant.name
-      ...>   {:error, :unknown_merchant, _message} -> nil
       ...>   {:error, _code, _message} -> nil
       ...> end
       "Adobe"
 
   """
-  @spec resolve(term()) :: {:ok, Merchant.t()} | error()
+  @spec resolve(term()) :: {:ok, Merchant.t()} | {:ok, :unknown} | error()
   def resolve(description) do
     description
     |> Normalizer.tokens()
     |> match_merchant()
     |> build_result()
+    |> emit_telemetry()
   end
 
   defp match_merchant({:error, _reason} = error), do: error
   defp match_merchant({:ok, tokens}), do: Matcher.match(tokens, @index)
 
   defp build_result({:ok, %Merchant{}} = result), do: result
+  defp build_result({:error, :unknown}), do: {:ok, :unknown}
   defp build_result({:error, reason}), do: Error.build(reason)
+
+  # Metadata is a fixed atom: the description never reaches the event.
+  defp emit_telemetry({:ok, %Merchant{}} = result), do: emit(:merchant_resolved, result)
+  defp emit_telemetry({:ok, :unknown} = result), do: emit(:merchant_unknown, result)
+
+  defp emit_telemetry(result), do: result
+
+  defp emit(outcome, result) do
+    :telemetry.execute([:merchant_icons, :resolve], %{count: 1}, %{result: outcome})
+    result
+  end
 end

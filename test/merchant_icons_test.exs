@@ -1,19 +1,22 @@
-defmodule IconifyTest do
+defmodule MerchantIconsTest do
   use ExUnit.Case, async: true
 
-  alias Iconify.Error
-  alias Iconify.Merchant
-  alias Iconify.Test.Support.Corpus
+  alias MerchantIcons.Error
+  alias MerchantIcons.Merchant
+  alias MerchantIcons.Test.Helpers.Corpus
 
-  doctest Iconify
+  doctest MerchantIcons
 
   # Invisible and ambiguous characters are always written as \u{...} escapes in this file.
 
-  @codes [:invalid_input, :input_too_large, :unknown_merchant, :ambiguous_merchant]
+  @codes [:invalid_input, :input_too_large, :ambiguous_merchant]
 
   defp assert_contract(result) do
     case result do
       {:ok, %Merchant{}} ->
+        :ok
+
+      {:ok, :unknown} ->
         :ok
 
       {:error, code, message} when code in @codes and is_binary(message) ->
@@ -24,28 +27,28 @@ defmodule IconifyTest do
   describe "resolve/1 success" do
     test "returns the merchant from the dataset" do
       assert {:ok, %Merchant{id: "google", name: "Google"}} =
-               Iconify.resolve("Google ADS2397919998")
+               MerchantIcons.resolve("Google ADS2397919998")
 
-      assert {:ok, %Merchant{id: "adobe", name: "Adobe"}} = Iconify.resolve("ADOBE")
+      assert {:ok, %Merchant{id: "adobe", name: "Adobe"}} = MerchantIcons.resolve("ADOBE")
     end
 
     test "the icon is validated SVG markup or nil, never a slug" do
       for {description, _id} <- Corpus.resolving() do
-        {:ok, %Merchant{icon: icon}} = Iconify.resolve(description)
+        {:ok, %Merchant{icon: icon}} = MerchantIcons.resolve(description)
 
-        assert is_nil(icon) or Iconify.Icons.validate(icon) == {:ok, icon}
+        assert is_nil(icon) or MerchantIcons.Icons.validate(icon) == {:ok, icon}
       end
     end
 
     test "resolves every description of the synthetic corpus" do
       for {description, id} <- Corpus.resolving() do
-        assert {:ok, %Merchant{id: ^id}} = Iconify.resolve(description),
+        assert {:ok, %Merchant{id: ^id}} = MerchantIcons.resolve(description),
                "expected #{inspect(description)} to resolve to #{id}"
       end
     end
 
     test "Uber UBER * PENDING resolves through the uber alias" do
-      assert {:ok, %Merchant{id: "uber"}} = Iconify.resolve("Uber UBER * PENDING")
+      assert {:ok, %Merchant{id: "uber"}} = MerchantIcons.resolve("Uber UBER * PENDING")
     end
 
     test "is insensitive to case, accents, full-width forms and zero-width characters" do
@@ -61,60 +64,57 @@ defmodule IconifyTest do
       ]
 
       for input <- inputs do
-        assert {:ok, %Merchant{id: "google"}} = Iconify.resolve(input),
+        assert {:ok, %Merchant{id: "google"}} = MerchantIcons.resolve(input),
                "expected #{inspect(input)} to resolve"
       end
     end
 
     test "apostrophes are joined, other quote-like characters separate" do
-      assert {:ok, %Merchant{id: "adobe"}} = Iconify.resolve("ADO'BE")
-      assert {:ok, %Merchant{id: "adobe"}} = Iconify.resolve("ADO\u{2019}BE")
-      assert {:error, :unknown_merchant, _} = Iconify.resolve("ADO\u{2018}BE")
+      assert {:ok, %Merchant{id: "adobe"}} = MerchantIcons.resolve("ADO'BE")
+      assert {:ok, %Merchant{id: "adobe"}} = MerchantIcons.resolve("ADO\u{2019}BE")
+      assert {:ok, :unknown} = MerchantIcons.resolve("ADO\u{2018}BE")
     end
 
     test "is deterministic" do
       for {description, _id} <- Corpus.resolving() do
-        assert Iconify.resolve(description) == Iconify.resolve(description)
+        assert MerchantIcons.resolve(description) == MerchantIcons.resolve(description)
       end
     end
   end
 
-  describe "resolve/1 :unknown_merchant" do
+  describe "resolve/1 unknown merchant" do
     test "valid descriptions without a match" do
-      assert {:error, :unknown_merchant, message} = Iconify.resolve("PADARIA DO ZE 0042")
-      assert is_binary(message)
+      assert {:ok, :unknown} = MerchantIcons.resolve("PADARIA DO ZE 0042")
     end
 
     test "false-positive guards and documented limitations stay unknown" do
       for description <- Corpus.unknown() do
-        assert {:error, :unknown_merchant, _} = Iconify.resolve(description),
+        assert {:ok, :unknown} = MerchantIcons.resolve(description),
                "expected #{inspect(description)} to be unknown"
       end
     end
 
     test "descriptions with content but no tokens are unknown, not invalid" do
       for input <- ["***", "0042", "'", "\u{2019}", "\u{1F600}"] do
-        result = Iconify.resolve(input)
-
-        assert {:error, code, _} = result
-        assert code == :unknown_merchant, "expected #{inspect(input)} to be unknown"
+        assert MerchantIcons.resolve(input) == {:ok, :unknown},
+               "expected #{inspect(input)} to be unknown"
       end
     end
 
     test "leading tokens that are not approved processor prefixes are not skipped" do
-      for description <- ["XY * GOOGLE ADS84150265", "PAYPAL * GITHUB INC"] do
-        assert {:error, :unknown_merchant, _} = Iconify.resolve(description)
+      for description <- ["XY * GOOGLE A0000021232", "PAYPAL * GITHUB INC"] do
+        assert {:ok, :unknown} = MerchantIcons.resolve(description)
       end
     end
 
     test "homoglyphs are not mapped" do
       # Cyrillic small o (U+043E) instead of Latin o
-      assert {:error, :unknown_merchant, _} = Iconify.resolve("G\u{43E}\u{43E}gle")
+      assert {:ok, :unknown} = MerchantIcons.resolve("G\u{43E}\u{43E}gle")
     end
 
     test "non-Latin descriptions are preserved as content, not erased" do
       for input <- ["Яндекс Такси", "東京 駅", "جوجل"] do
-        assert {:error, :unknown_merchant, _} = Iconify.resolve(input)
+        assert {:ok, :unknown} = MerchantIcons.resolve(input)
       end
     end
   end
@@ -136,7 +136,7 @@ defmodule IconifyTest do
       ]
 
       for input <- blanks do
-        assert {:error, :invalid_input, message} = Iconify.resolve(input),
+        assert {:error, :invalid_input, message} = MerchantIcons.resolve(input),
                "expected #{inspect(input)} to be invalid"
 
         assert is_binary(message)
@@ -162,37 +162,43 @@ defmodule IconifyTest do
       ]
 
       for term <- terms do
-        assert {:error, :invalid_input, message} = Iconify.resolve(term)
+        assert {:error, :invalid_input, message} = MerchantIcons.resolve(term)
         assert is_binary(message)
       end
     end
 
     test "invalid UTF-8" do
       for input <- [<<0xFF>>, <<0xC3, 0x28>>, "google" <> <<0xFF>>, <<0xED, 0xA0, 0x80>>] do
-        assert {:error, :invalid_input, _} = Iconify.resolve(input)
+        assert {:error, :invalid_input, _} = MerchantIcons.resolve(input)
       end
     end
   end
 
   describe "resolve/1 :input_too_large" do
     test "accepts exactly the limit and rejects one byte more" do
-      assert {:error, :unknown_merchant, _} = Iconify.resolve(String.duplicate("a", 1024))
-      assert {:error, :input_too_large, _} = Iconify.resolve(String.duplicate("a", 1025))
+      assert {:ok, :unknown} = MerchantIcons.resolve(String.duplicate("a", 1024))
+      assert {:error, :input_too_large, _} = MerchantIcons.resolve(String.duplicate("a", 1025))
     end
 
     test "the limit is in bytes, not characters" do
-      assert {:error, :unknown_merchant, _} = Iconify.resolve(String.duplicate("\u{E9}", 512))
-      assert {:error, :input_too_large, _} = Iconify.resolve(String.duplicate("\u{E9}", 513))
+      assert {:ok, :unknown} = MerchantIcons.resolve(String.duplicate("\u{E9}", 512))
+
+      assert {:error, :input_too_large, _} =
+               MerchantIcons.resolve(String.duplicate("\u{E9}", 513))
     end
 
     test "huge input is rejected without being truncated" do
-      assert {:error, :input_too_large, _} = Iconify.resolve(:binary.copy("a", 10_000_000))
-      assert {:error, :input_too_large, _} = Iconify.resolve("google " <> :binary.copy("a", 5_000))
+      assert {:error, :input_too_large, _} = MerchantIcons.resolve(:binary.copy("a", 10_000_000))
+
+      assert {:error, :input_too_large, _} =
+               MerchantIcons.resolve("google " <> :binary.copy("a", 5_000))
     end
 
     test "size is checked before content" do
-      assert {:error, :input_too_large, _} = Iconify.resolve(String.duplicate(" ", 2_000))
-      assert {:error, :input_too_large, _} = Iconify.resolve(String.duplicate(<<0xFF>>, 2_000))
+      assert {:error, :input_too_large, _} = MerchantIcons.resolve(String.duplicate(" ", 2_000))
+
+      assert {:error, :input_too_large, _} =
+               MerchantIcons.resolve(String.duplicate(<<0xFF>>, 2_000))
     end
   end
 
@@ -202,31 +208,31 @@ defmodule IconifyTest do
         [nil, "", "   ", "***", "google", "x", <<0xFF>>, String.duplicate("a", 5_000), :atom, 1] ++
           Enum.map(Corpus.resolving(), &elem(&1, 0)) ++ Corpus.unknown()
 
-      for input <- inputs, do: assert_contract(Iconify.resolve(input))
+      for input <- inputs, do: assert_contract(MerchantIcons.resolve(input))
     end
 
     test "never raises for unexpected input" do
       inputs = [nil, 1, :a, [], %{}, {}, <<0xFF, 0xFE>>, "", self(), fn -> :ok end]
 
       for input <- inputs do
-        assert is_tuple(Iconify.resolve(input))
+        assert is_tuple(MerchantIcons.resolve(input))
       end
     end
 
     test "composes with case/2 and pattern matching" do
       result =
-        case Iconify.resolve("Uber Trip") do
+        case MerchantIcons.resolve("Uber Trip") do
           {:ok, %Merchant{id: id}} -> {:resolved, id}
-          {:error, :unknown_merchant, _message} -> :unknown
+          {:ok, :unknown} -> :unknown
           {:error, _code, _message} -> :other
         end
 
       assert result == {:resolved, "uber"}
 
       result =
-        case Iconify.resolve("nothing here") do
+        case MerchantIcons.resolve("nothing here") do
           {:ok, %Merchant{id: id}} -> {:resolved, id}
-          {:error, :unknown_merchant, _message} -> :unknown
+          {:ok, :unknown} -> :unknown
           {:error, _code, _message} -> :other
         end
 
@@ -234,24 +240,24 @@ defmodule IconifyTest do
     end
   end
 
-  describe "Iconify.Error.build/1" do
-  test "maps each internal reason to its public code" do
-  mapping = [
-    not_binary: :invalid_input,
-    invalid_utf8: :invalid_input,
-    blank: :invalid_input,
-    too_large: :input_too_large,
-    unknown: :unknown_merchant,
-    ambiguous: :ambiguous_merchant
-  ]
+  describe "MerchantIcons.Error.build/1" do
+    test "maps each internal reason to its public code" do
+      mapping = [
+        not_binary: :invalid_input,
+        invalid_utf8: :invalid_input,
+        blank: :invalid_input,
+        too_large: :input_too_large,
+        ambiguous: :ambiguous_merchant
+      ]
 
-  for {reason, code} <- mapping do
-    assert {:error, ^code, message} = Error.build(reason)
+      for {reason, code} <- mapping do
+        assert {:error, ^code, message} = Error.build(reason)
 
-    assert message != ""
-    assert is_binary(message)
-  end
-end
+        assert message != ""
+        assert is_binary(message)
+      end
+    end
+
     test "builds the ambiguous public tuple" do
       assert {:error, :ambiguous_merchant, _} = Error.build(:ambiguous)
     end

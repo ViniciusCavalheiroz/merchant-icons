@@ -1,10 +1,10 @@
-defmodule Iconify.IndexTest do
+defmodule MerchantIcons.Matching.IndexTest do
   use ExUnit.Case, async: true
 
-  alias Iconify.Index
-  alias Iconify.Matcher
-  alias Iconify.Merchant
-  alias Iconify.Normalizer
+  alias MerchantIcons.Matching.Index
+  alias MerchantIcons.Matching.Matcher
+  alias MerchantIcons.Matching.Normalizer
+  alias MerchantIcons.Merchant
 
   defp valid(overrides \\ %{}) do
     Map.merge(%{id: "ok", name: "Ok", icon: "ok", aliases: [{"ok", :whole}]}, overrides)

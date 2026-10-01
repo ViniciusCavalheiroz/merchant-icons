@@ -1,12 +1,14 @@
-defmodule Iconify.MixProject do
+defmodule MerchantIcons.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :iconify,
+      app: :merchant_icons,
       version: "0.1.0",
       elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
+      # test/helpers holds modules loaded by test_helper.exs, not test files.
+      test_ignore_filters: [&String.starts_with?(&1, "test/helpers/")],
       deps: deps()
     ]
   end
@@ -21,8 +23,7 @@ defmodule Iconify.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
+      {:telemetry, "~> 1.4.2"}
     ]
   end
 end

@@ -1,11 +1,11 @@
-defmodule Iconify.Test.Support.FixtureMerchants do
+defmodule MerchantIcons.Test.Helpers.FixtureMerchants do
   @moduledoc false
 
   # Artificial, synthetic datasets used to exercise behaviour that the production dataset does
   # not contain: shared aliases, priority ties and a merchant with only a :whole alias. Nothing
   # here is real merchant or transaction data.
 
-  alias Iconify.Index
+  alias MerchantIcons.Matching.Index
 
   @doc """
   Artificial merchants:

@@ -1,10 +1,10 @@
-defmodule Iconify.SecurityTest do
+defmodule MerchantIcons.SecurityTest do
   use ExUnit.Case, async: true
 
   import ExUnit.CaptureLog
 
-  alias Iconify.Error
-  alias Iconify.Merchant
+  alias MerchantIcons.Error
+  alias MerchantIcons.Merchant
 
   # Invisible and ambiguous characters are always written as \u{...} escapes in this file.
 
@@ -33,27 +33,28 @@ defmodule Iconify.SecurityTest do
   describe "no transaction data in results" do
     test "results and messages never contain the input" do
       for input <- inputs_with_canary() do
-        result = Iconify.resolve(input)
+        result = MerchantIcons.resolve(input)
 
         refute inspect(result) =~ @canary, "result leaked input: #{inspect(result)}"
 
         case result do
           {:error, _code, message} -> refute message =~ @canary
           {:ok, %Merchant{}} -> :ok
+          {:ok, :unknown} -> :ok
         end
       end
     end
 
     test "a successful result only contains dataset values, never parts of the input" do
       assert {:ok, %Merchant{id: "google", name: "Google"}} =
-               Iconify.resolve("google " <> @canary)
+               MerchantIcons.resolve("google " <> @canary)
 
-      assert {:ok, merchant} = Iconify.resolve("uber " <> @canary <> " 99")
+      assert {:ok, merchant} = MerchantIcons.resolve("uber " <> @canary <> " 99")
       refute inspect(merchant) =~ @canary
     end
 
     test "error messages are static" do
-      for reason <- [:not_binary, :invalid_utf8, :blank, :too_large, :unknown, :ambiguous] do
+      for reason <- [:not_binary, :invalid_utf8, :blank, :too_large, :ambiguous] do
         assert Error.build(reason) == Error.build(reason)
         {:error, _code, message} = Error.build(reason)
         refute message =~ @canary
@@ -61,7 +62,7 @@ defmodule Iconify.SecurityTest do
     end
 
     test "the size message states the limit, not the size of the input" do
-      {:error, :input_too_large, message} = Iconify.resolve(String.duplicate("a", 123_456))
+      {:error, :input_too_large, message} = MerchantIcons.resolve(String.duplicate("a", 123_456))
 
       assert message =~ "1024"
       refute message =~ "123456"
@@ -72,10 +73,10 @@ defmodule Iconify.SecurityTest do
     test "resolving emits no log output" do
       output =
         capture_log(fn ->
-          for input <- inputs_with_canary(), do: Iconify.resolve(input)
-          Iconify.resolve("DL * GOOGLE ADS84150265")
-          Iconify.resolve("")
-          Iconify.resolve(nil)
+          for input <- inputs_with_canary(), do: MerchantIcons.resolve(input)
+          MerchantIcons.resolve("DL * GOOGLE A0000021232")
+          MerchantIcons.resolve("")
+          MerchantIcons.resolve(nil)
         end)
 
       assert output == ""
@@ -101,7 +102,7 @@ defmodule Iconify.SecurityTest do
       ]
 
       for input <- hostile do
-        assert is_tuple(Iconify.resolve(input))
+        assert is_tuple(MerchantIcons.resolve(input))
       end
     end
 
@@ -113,7 +114,7 @@ defmodule Iconify.SecurityTest do
             String.duplicate("google ", 146)
           ] do
         assert byte_size(input) <= 1024
-        assert is_tuple(Iconify.resolve(input))
+        assert is_tuple(MerchantIcons.resolve(input))
       end
     end
 
@@ -122,14 +123,14 @@ defmodule Iconify.SecurityTest do
       input = String.duplicate("\u{FDFA}", 340)
 
       assert byte_size(input) <= 1024
-      assert is_tuple(Iconify.resolve(input))
+      assert is_tuple(MerchantIcons.resolve(input))
     end
   end
 
   # Regular expressions are allowed only in the normalizer: its patterns are fixed literals made
   # of character classes (linear matching) applied to input limited to 1024 bytes.
   @regex_patterns ["Regex.", "~r"]
-  @regex_file "iconify/normalizer.ex"
+  @regex_file "merchant_icons/matching/normalizer.ex"
 
   defp regex_allowed?(file, pattern) do
     pattern in @regex_patterns and Path.relative_to(file, @lib_dir) == @regex_file

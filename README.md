@@ -1,154 +1,219 @@
-# Iconify
+# MerchantIcons
 
-Iconify is an Elixir library for identifying merchants from transaction descriptions and providing the data required to display their corresponding icons.
-
-The library receives only the transaction description and returns the identified merchant, including its identifier, name, and icon.
-
-```elixir
-Iconify.resolve("Spotify")
-```
+> Turn a noisy transaction description into a known merchant and its icon. Offline, stateless and
+> safe by design.
 
 ```elixir
-{:ok, %Iconify.Merchant{
-  id: "spotify",
-  name: "Spotify",
-  icon: "spotify"
-}}
+iex> {:ok, merchant} = MerchantIcons.resolve("DL * GOOGLE A0000021232")
+iex> {merchant.id, merchant.name}
+{"google", "Google"}
 ```
 
-Icons are bundled with the library and stored as SVG files under `priv/icons`.
+## Overview
 
-The consuming application does not need to fetch icons from external services or access the internet to retrieve them.
+Bank and card statements describe merchants in messy ways: processor prefixes, codes, numbers,
+statuses, random casing and accents.
 
-## Features
+```text
+DL * GOOGLE A000000
+Google ADS2397919998
+Uber UBER * PENDING
+DL * UberRides
+ADOBE
+```
 
-* Identify merchants from transaction descriptions.
-* Normalize transaction descriptions.
-* Support merchant aliases and different description formats.
-* Handle payment processor prefixes.
-* Detect ambiguous merchant matches.
-* Bundle merchant icons as SVG files.
-* No network dependencies.
-* Simple API for Elixir applications.
+`MerchantIcons.resolve/1` takes one of these descriptions and:
+
+1. validates and **normalizes** it (Unicode NFKD, accents removed, case folded, zero-width
+   characters removed);
+2. splits it into tokens and ignores a known processor prefix;
+3. **matches** it against a small static dataset of merchants;
+4. returns a `%MerchantIcons.Merchant{}` with the merchant `id`, `name` and, when available, the
+   complete **SVG markup** of its icon.
+
+What it deliberately is **not**:
+
+* It has no network access. Resolution and icons work offline, and the SVGs are embedded when the
+  library compiles.
+* It keeps no state: no database, cache, process or file access at runtime.
+* It does not deal with amounts, currencies, categories or any other financial data. The
+  description is only the input used to find the merchant.
+* It never logs, stores or returns the description (see [Security](#security-and-privacy)).
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed by adding `iconify` to your list of dependencies in `mix.exs`:
+Requires Elixir `~> 1.20`. The only dependency is [`:telemetry`](https://hex.pm/packages/telemetry).
+
+The library is not published on Hex yet. Once it is, add it to `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:iconify, "~> 0.1.0"}
+    {:merchant_icons, "~> 0.1.0"}
   ]
 end
 ```
 
-Then run:
-
-```bash
-mix deps.get
-```
-
 ## Usage
 
-Resolve a merchant from a description:
-
 ```elixir
-Iconify.resolve("OPENAI * CHATGPT SUBSCR")
+case MerchantIcons.resolve("Uber UBER * PENDING") do
+  {:ok, :unknown} ->
+    # valid description, merchant not in the dataset
+    :unknown
+
+  {:ok, %MerchantIcons.Merchant{id: id, name: name, icon: icon}} ->
+    {id, name, icon}
+
+  {:error, _code, _message} ->
+    # invalid, too large or ambiguous input
+    :error
+end
 ```
 
-```elixir
-{:ok, %Iconify.Merchant{
-  id: "openai",
-  name: "OpenAI",
-  icon: "openai"
-}}
-```
-
-Another example:
+It composes naturally with pipelines and pattern matching:
 
 ```elixir
-Iconify.resolve("DL * GOOGLE A000000")
+with_icon =
+  for description <- ["ADOBE", "Google ADS2397919998", "PADARIA DO ZE 0042"],
+      {:ok, %MerchantIcons.Merchant{icon: icon} = merchant} when is_binary(icon) <-
+        [MerchantIcons.resolve(description)] do
+    merchant
+  end
 ```
 
-```elixir
-{:ok, %Iconify.Merchant{
-  id: "google",
-  name: "Google",
-  icon: "google"
-}}
-```
+Examples of what resolves to what:
 
-When the merchant cannot be identified:
+| Description               | Result                    |
+|---------------------------|---------------------------|
+| `DL * GOOGLE A0000021232` | `Google`                  |
+| `Google ADS2397919998`    | `Google`                  |
+| `Google One`              | `Google One`              |
+| `Uber UBER * PENDING`     | `Uber`                    |
+| `DL * UberRides`          | `Uber`                    |
+| `ADOBE`                   | `Adobe`                   |
+| `PADARIA DO ZE 0042`      | `{:ok, :unknown}`         |
 
-```elixir
-Iconify.resolve("UNKNOWN MERCHANT")
-```
+## Input and output
 
-```elixir
-{:error, :unknown_merchant, "Merchant not identified"}
-```
+### Input
+
+`resolve/1` accepts any term and never raises because of its input. Descriptions are always
+treated as untrusted data. A valid description is a non-blank, valid UTF-8 binary of at most
+**1024 bytes**. Larger input is rejected, not truncated. The limit is in bytes and is provisional:
+raising it later is compatible, lowering it is not.
+
+### Output
+
+`resolve/1` returns one of:
+
+| Result                         | Meaning                                                         |
+|--------------------------------|-----------------------------------------------------------------|
+| `{:ok, %MerchantIcons.Merchant{}}` | a merchant was identified                                   |
+| `{:ok, :unknown}`              | valid description, but no merchant in the dataset matches it    |
+| `{:error, :invalid_input, msg}`    | not a binary, invalid UTF-8, or empty/blank                 |
+| `{:error, :input_too_large, msg}`  | larger than 1024 bytes                                      |
+| `{:error, :ambiguous_merchant, msg}` | several merchants match and no rule picks one             |
+
+An unknown merchant is **not** an error: it means the dataset does not cover that merchant yet.
+
+Error tuples always have three elements. Branch on the `code`; the `message` is informative
+English text and is not part of the contract. No message contains the description or any other
+input. The set of codes is open (new codes may appear in minor versions), so keep a clause that
+matches any `{:error, _code, _message}`.
+
+### The merchant struct
+
+| Field   | Type                  | Description                                                    |
+|---------|-----------------------|----------------------------------------------------------------|
+| `:id`   | `String.t()`          | stable `snake_case` identifier, such as `"google"`             |
+| `:name` | `String.t()`          | display name, such as `"Google"`                               |
+| `:icon` | `String.t() \| nil`   | complete SVG markup of the logo, or `nil` when there is none   |
+
+The struct only contains dataset values, never any part of the description. The icon is left out
+of `inspect/1` because of its size. New fields may be added in minor versions, so match on the
+keys you need.
 
 ## Icons
 
-Merchant icons are included in the package as SVG files under:
-
-```text
-priv/icons/
-```
-
-The `icon` field returned by `Iconify.resolve/1` identifies the corresponding icon.
-
-For example:
+`merchant.icon` is the SVG itself, not a URL, path or slug:
 
 ```elixir
-merchant.icon
-#=> "spotify"
+{:ok, merchant} = MerchantIcons.resolve("ADOBE")
+"<svg" <> _ = merchant.icon
 ```
 
-The application can use this identifier to locate the corresponding SVG included with Iconify.
+* Icons live in `priv/icons/*.svg` and are embedded in the library at compile time. Getting an
+  icon never touches the network or the file system.
+* The markup is meant to be inlined in HTML and scaled with CSS (every icon has a `viewBox`).
+* Every SVG is validated while the library compiles. Scripts, event handlers, `foreignObject`,
+  entities, `javascript:` URIs and external references are rejected, and a bad file stops the
+  build.
+* When `icon` is `nil`, the merchant has no icon yet. Treat it like an unknown icon and choose your
+  own fallback.
 
-## Scope
+Merchant logos are trademarks of their respective owners.
 
-Iconify is responsible for identifying merchants and providing the corresponding icon.
+## Telemetry
 
-It does not process or interpret:
+`resolve/1` emits one [`:telemetry`](https://hexdocs.pm/telemetry) event when it identifies a
+merchant or concludes that it is unknown:
 
-* transaction amounts;
-* currencies;
-* categories;
-* MCC;
-* countries;
-* financial rules;
-* payment processing;
-* external image services.
+| Event                           | Measurements | Metadata                                                  |
+|---------------------------------|--------------|-----------------------------------------------------------|
+| `[:merchant_icons, :resolve]`   | `%{count: 1}`| `%{result: :merchant_resolved}` or `%{result: :merchant_unknown}` |
 
-The library does not download or resolve images from the internet.
-
-## Development
-
-Format the code:
-
-```bash
-mix format
+```elixir
+:telemetry.attach(
+  "merchant-icons-counter",
+  [:merchant_icons, :resolve],
+  &MyApp.Metrics.handle_event/4,
+  nil
+)
 ```
 
-Run the test suite:
+The event never carries the description, the merchant or any other input. Validation errors and
+`:ambiguous_merchant` do not emit events in this version. Your application decides whether to
+attach a handler and what to do with the events; without a handler `resolve/1` behaves the same.
+The library does not use `Logger`.
 
-```bash
-mix test
-```
+## How matching works
 
-Generate the documentation:
+* **Normalization:** Unicode NFKD, accents removed, case folded, zero-width characters removed.
+* **Tokens:** the text is split at separators and at letter/digit boundaries. CamelCase is not
+  split, so `UberRides` is a single token.
+* **Processor prefixes:** a leading `dl`, `dm`, `ebn` or `ppro` token is ignored, so
+  `DL * GOOGLE A0000021232` is matched as `GOOGLE ADS 84150265`. Any other leading token (for
+  example `PAYPAL`) is not skipped.
+* **Aliases** are token sequences of two kinds:
+  * `:leading`: the alias must start the description, and anything may follow it.
+  * `:whole`: the alias must account for the whole description; only digits-only tokens may
+    follow it. Used for short or generic names such as `Miro` or `Sentry`.
+* **Conflicts:** the alias with more tokens wins, then `:whole` wins over `:leading`. If different
+  merchants remain, the result is `:ambiguous_merchant`.
 
-```bash
-mix docs
-```
+Matching is deterministic and there is **no substring matching**.
 
-## Documentation
+## Security and privacy
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc) and published on [HexDocs](https://hexdocs.pm/).
+* Descriptions are untrusted: input is size-limited and validated before any processing, and
+  nothing is built dynamically from it (no regex compilation from input, no `eval`).
+* The description is never logged, stored, put in error messages, in the returned struct or in
+  telemetry events.
+* No network access and no persistence.
 
-Once published, the documentation will be available at:
+## Limitations
 
-https://hexdocs.pm/iconify
+* **Small dataset:** it currently contains 109 merchants, and only four of them have an icon
+  (Google, Adobe, OpenAI and Spotify). The others return `icon: nil`.
+* **Unknown merchants:** anything outside the dataset returns `{:ok, :unknown}`. Merchants are
+  added to the library itself; there is no API for custom merchants or aliases yet.
+* **Conservative matching:** because there is no substring matching, a name glued to a code (for
+  example `GOOGLEADS 123`) or in the middle of a description (`MY GOOGLE`) is not matched. This
+  avoids false positives at the cost of some false negatives.
+* **Few processor prefixes:** only `dl`, `dm`, `ebn` and `ppro` are skipped.
+* **Homoglyphs and non-Latin text:** Cyrillic or other look-alike letters are not mapped to Latin,
+  and non-Latin descriptions are preserved as content and will usually be unknown.
+* **Input limit:** 1024 bytes, provisional.
+* **Telemetry:** only resolved and unknown results are reported.
+* **Not on Hex yet**, and no license has been chosen.

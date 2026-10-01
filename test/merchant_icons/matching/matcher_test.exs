@@ -1,12 +1,12 @@
-defmodule Iconify.MatcherTest do
+defmodule MerchantIcons.Matching.MatcherTest do
   use ExUnit.Case, async: true
 
-  alias Iconify.Index
-  alias Iconify.Matcher
-  alias Iconify.Merchant
-  alias Iconify.Merchants
-  alias Iconify.Normalizer
-  alias Iconify.Test.Support.FixtureMerchants, as: Fixture
+  alias MerchantIcons.Data.Merchants
+  alias MerchantIcons.Matching.Index
+  alias MerchantIcons.Matching.Matcher
+  alias MerchantIcons.Matching.Normalizer
+  alias MerchantIcons.Merchant
+  alias MerchantIcons.Test.Helpers.FixtureMerchants, as: Fixture
 
   defp production, do: Index.build(Merchants.all())
   defp without_prefixes, do: Index.build(Merchants.all(), prefixes: [])
@@ -57,7 +57,7 @@ defmodule Iconify.MatcherTest do
 
   describe "processor prefixes" do
     test "are skipped at the start of the description" do
-      assert {:ok, %Merchant{id: "google"}} = match("DL * GOOGLE ADS84150265", production())
+      assert {:ok, %Merchant{id: "google"}} = match("DL * GOOGLE A0000021232", production())
       assert {:ok, %Merchant{id: "uber"}} = match("DL * UberRides", production())
       assert {:ok, %Merchant{id: "adobe"}} = match("PPRO * ADOBE", production())
       assert {:ok, %Merchant{id: "adobe"}} = match("EBN * ADOBE", production())
@@ -65,7 +65,7 @@ defmodule Iconify.MatcherTest do
     end
 
     test "are not skipped when the index declares none" do
-      assert match("DL * GOOGLE ADS84150265", without_prefixes()) == {:error, :unknown}
+      assert match("DL * GOOGLE A0000021232", without_prefixes()) == {:error, :unknown}
     end
 
     test "consecutive prefixes are all skipped" do
@@ -79,7 +79,7 @@ defmodule Iconify.MatcherTest do
 
     test "other leading tokens are not prefixes" do
       assert match("PAYPAL * GITHUB INC", production()) == {:error, :unknown}
-      assert match("XY * GOOGLE ADS84150265", production()) == {:error, :unknown}
+      assert match("XY * GOOGLE A0000021232", production()) == {:error, :unknown}
     end
 
     test "a prefix with nothing after it is unknown" do

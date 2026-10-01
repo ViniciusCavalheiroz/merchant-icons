@@ -1,4 +1,4 @@
-defmodule Iconify.Test.Support.Corpus do
+defmodule MerchantIcons.Test.Helpers.Corpus do
   @moduledoc false
 
   # Synthetic descriptions. None of them comes from a real transaction: codes and suffixes are
@@ -9,12 +9,12 @@ defmodule Iconify.Test.Support.Corpus do
   def resolving do
     [
       {"Google ADS2397919998", "google"},
-      {"Google ADS8415026549", "google"},
+      {"Google A000002123249", "google"},
       {"GOOGLE ADS 123", "google"},
       {"google", "google"},
       {"Google One", "google_one"},
       {"Google TEMPORARY HOLD", "google"},
-      {"DL * GOOGLE ADS84150265", "google"},
+      {"DL * GOOGLE A0000021232", "google"},
       {"DL * UberRides", "uber"},
       {"Uber UBER * PENDING", "uber"},
       {"Uber Trip Help", "uber"},
@@ -56,7 +56,7 @@ defmodule Iconify.Test.Support.Corpus do
       "MY GOOGLE ADS",
       "NOT ADOBE",
       # a leading token that is not an approved processor prefix is not skipped
-      "XY * GOOGLE ADS84150265",
+      "XY * GOOGLE A0000021232",
       "PAYPAL * GITHUB INC",
       # documented limitation: names glued to other letters are not matched
       "GOOGLEADS123",

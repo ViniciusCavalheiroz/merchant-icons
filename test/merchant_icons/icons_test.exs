@@ -1,7 +1,7 @@
-defmodule Iconify.IconsTest do
+defmodule MerchantIcons.IconsTest do
   use ExUnit.Case, async: true
 
-  alias Iconify.Icons
+  alias MerchantIcons.Icons
 
   # The markup below is the smallest text that satisfies or violates each rule. It is not a logo
   # and is never written to priv/icons.
@@ -126,7 +126,7 @@ defmodule Iconify.IconsTest do
 
   describe "embed!/2" do
     setup do
-      dir = Path.join(System.tmp_dir!(), "iconify_icons_#{System.unique_integer([:positive])}")
+      dir = Path.join(System.tmp_dir!(), "merchant_icons_#{System.unique_integer([:positive])}")
       File.mkdir_p!(dir)
       on_exit(fn -> File.rm_rf!(dir) end)
 
@@ -172,10 +172,10 @@ defmodule Iconify.IconsTest do
       assert message(fn -> Icons.embed!([definition(%{icon: nil})], dir) end) =~ "orphan"
     end
 
-    test "slugs cannot leave the icons directory", %{dir: dir} do
-      for slug <- ["../secret", "a/b", "A", "", "with space", "dot.svg"] do
-        assert message(fn -> Icons.embed!([definition(%{icon: slug})], dir) end) =~
-                 "not a valid slug"
+    test "icon names cannot leave the icons directory", %{dir: dir} do
+      for icon_name <- ["../secret", "a/b", "A", "", "with space", "dot.svg"] do
+        assert message(fn -> Icons.embed!([definition(%{icon: icon_name})], dir) end) =~
+                 "not a valid icon name"
       end
     end
 

@@ -1,4 +1,4 @@
-defmodule Iconify.Index do
+defmodule MerchantIcons.Matching.Index do
   @moduledoc false
 
   # Lookup structure built from a dataset. Aliases go through the same normalization as
@@ -7,9 +7,9 @@ defmodule Iconify.Index do
   # Invalid data raises `ArgumentError` (at compile time for the production dataset). Messages
   # only mention dataset values, never transaction data.
 
-  alias Iconify.Merchant
-  alias Iconify.Noise
-  alias Iconify.Normalizer
+  alias MerchantIcons.Matching.Noise
+  alias MerchantIcons.Matching.Normalizer
+  alias MerchantIcons.Merchant
 
   defstruct entries: %{}, prefixes: %{}
 
@@ -39,7 +39,7 @@ defmodule Iconify.Index do
 
   Options:
 
-    * `:prefixes` - processor prefix tokens (default: `Iconify.Noise.prefixes/0`)
+    * `:prefixes` - processor prefix tokens (default: `MerchantIcons.Matching.Noise.prefixes/0`)
 
   The same alias may belong to several merchants on purpose (the matcher reports it as
   ambiguous). The same alias twice in one merchant is an error.
@@ -52,7 +52,6 @@ defmodule Iconify.Index do
     |> build_entries()
     |> to_index()
   end
-
 
   defp build_prefixes(%{prefixes: values} = params) do
     %{params | prefixes: Map.new(values, &prefix_entry!/1)}
@@ -97,7 +96,7 @@ defmodule Iconify.Index do
   end
 
   defp validate_id!(id) do
-    ensure!(slug?(id), "merchant id must be snake_case ASCII, got: #{inspect(id)}")
+    ensure!(snake_case_id?(id), "merchant id must be snake_case ASCII, got: #{inspect(id)}")
   end
 
   defp validate_name!(id, name) do
@@ -113,7 +112,9 @@ defmodule Iconify.Index do
 
   # build_entries
 
-  defp build_entries(%{definitions: definitions, merchants: merchants, prefixes: prefixes} = params) do
+  defp build_entries(
+         %{definitions: definitions, merchants: merchants, prefixes: prefixes} = params
+       ) do
     entries =
       definitions
       |> Enum.zip(merchants)
@@ -134,7 +135,8 @@ defmodule Iconify.Index do
   end
 
   defp build_merchant_entries!({_definition, merchant}, _prefixes) do
-    raise ArgumentError, "merchant #{inspect(merchant.id)} must define a non-empty list of aliases"
+    raise ArgumentError,
+          "merchant #{inspect(merchant.id)} must define a non-empty list of aliases"
   end
 
   defp build_entry!({text, kind}, merchant, prefixes)
@@ -192,15 +194,15 @@ defmodule Iconify.Index do
   # helpers
 
   # snake_case ASCII: segments of [a-z0-9] separated by single underscores.
-  defp slug?(value) do
+  defp snake_case_id?(value) do
     value
     |> :binary.split("_", [:global])
-    |> Enum.all?(&slug_segment?/1)
+    |> Enum.all?(&snake_case_segment?/1)
   end
 
-  defp slug_segment?(""), do: false
+  defp snake_case_segment?(""), do: false
 
-  defp slug_segment?(segment) do
+  defp snake_case_segment?(segment) do
     segment
     |> :binary.bin_to_list()
     |> Enum.all?(&(&1 in ?a..?z or &1 in ?0..?9))

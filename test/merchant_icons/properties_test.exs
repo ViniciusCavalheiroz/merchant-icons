@@ -1,4 +1,4 @@
-defmodule Iconify.PropertiesTest do
+defmodule MerchantIcons.PropertiesTest do
   use ExUnit.Case, async: true
 
   # Property-style tests using only the standard library: inputs come from a seeded random
@@ -7,12 +7,12 @@ defmodule Iconify.PropertiesTest do
   #
   # Invisible and ambiguous characters are always written as \u{...} escapes in this file.
 
-  alias Iconify.Merchant
-  alias Iconify.Normalizer
-  alias Iconify.Test.Support.Corpus
+  alias MerchantIcons.Matching.Normalizer
+  alias MerchantIcons.Merchant
+  alias MerchantIcons.Test.Helpers.Corpus
 
   @iterations 300
-  @codes [:invalid_input, :input_too_large, :unknown_merchant, :ambiguous_merchant]
+  @codes [:invalid_input, :input_too_large, :ambiguous_merchant]
 
   setup do
     :rand.seed(:exsss, {101, 202, 303})
@@ -22,6 +22,9 @@ defmodule Iconify.PropertiesTest do
   defp assert_contract(result) do
     case result do
       {:ok, %Merchant{}} ->
+        :ok
+
+      {:ok, :unknown} ->
         :ok
 
       {:error, code, message} when code in @codes and is_binary(message) ->
@@ -64,13 +67,13 @@ defmodule Iconify.PropertiesTest do
 
   test "arbitrary binaries never raise and always respect the contract" do
     for _ <- 1..@iterations do
-      assert_contract(Iconify.resolve(:rand.bytes(:rand.uniform(1_200) - 1)))
+      assert_contract(MerchantIcons.resolve(:rand.bytes(:rand.uniform(1_200) - 1)))
     end
   end
 
   test "arbitrary Unicode strings never raise and always respect the contract" do
     for _ <- 1..@iterations do
-      assert_contract(Iconify.resolve(random_unicode_string()))
+      assert_contract(MerchantIcons.resolve(random_unicode_string()))
     end
   end
 
@@ -103,30 +106,31 @@ defmodule Iconify.PropertiesTest do
       assert Normalizer.tokens(String.upcase(input)) ==
                Normalizer.tokens(String.downcase(input))
 
-      assert Iconify.resolve(String.upcase(input)) == Iconify.resolve(String.downcase(input))
+      assert MerchantIcons.resolve(String.upcase(input)) ==
+               MerchantIcons.resolve(String.downcase(input))
     end
   end
 
   test "trailing digits-only tokens never change a resolved merchant" do
     for {description, id} <- Corpus.resolving(), _ <- 1..20 do
-      assert {:ok, %Merchant{id: ^id}} = Iconify.resolve(description <> " " <> random_digits())
+      assert {:ok, %Merchant{id: ^id}} =
+               MerchantIcons.resolve(description <> " " <> random_digits())
     end
   end
 
   test "trailing digits-only tokens never turn an unknown description into a merchant" do
     for description <- Corpus.unknown(), _ <- 1..20 do
-      assert {:error, :unknown_merchant, _} =
-               Iconify.resolve(description <> " " <> random_digits())
+      assert {:ok, :unknown} = MerchantIcons.resolve(description <> " " <> random_digits())
     end
   end
 
   test "extra whitespace and control characters never change the result" do
     for {description, _id} <- Corpus.resolving() do
-      expected = Iconify.resolve(description)
+      expected = MerchantIcons.resolve(description)
 
-      assert Iconify.resolve(String.replace(description, " ", "  \t ")) == expected
-      assert Iconify.resolve("  " <> description <> "\n") == expected
-      assert Iconify.resolve(String.replace(description, " ", "\u{A0}")) == expected
+      assert MerchantIcons.resolve(String.replace(description, " ", "  \t ")) == expected
+      assert MerchantIcons.resolve("  " <> description <> "\n") == expected
+      assert MerchantIcons.resolve(String.replace(description, " ", "\u{A0}")) == expected
     end
   end
 end

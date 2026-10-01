@@ -20,4 +20,10 @@ erl_crash.dump
 *.ez
 
 # Ignore package tarball (built via "mix hex.build").
-iconify-*.tar
+merchant_icons-*.tar
+
+.claude/settings.local.json
+
+CLAUDE.MD
+TEST.csv
+.claude

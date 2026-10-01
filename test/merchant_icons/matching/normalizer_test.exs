@@ -1,9 +1,8 @@
-defmodule Iconify.NormalizerTest do
+defmodule MerchantIcons.Matching.NormalizerTest do
   use ExUnit.Case, async: true
 
-  alias Iconify.Normalizer
-  alias Iconify.Test.Support.Corpus
-
+  alias MerchantIcons.Matching.Normalizer
+  alias MerchantIcons.Test.Helpers.Corpus
 
   defp assert_tokens(cases) do
     for {input, expected} <- cases do
@@ -15,9 +14,9 @@ defmodule Iconify.NormalizerTest do
   describe "tokens/1 examples" do
     test "the documented descriptions" do
       assert_tokens([
-        {"DL * GOOGLE ADS84150265", ["dl", "google", "ads", "84150265"]},
+        {"DL * GOOGLE A0000021232", ["dl", "google", "a", "0000021232"]},
         {"Google ADS2397919998", ["google", "ads", "2397919998"]},
-        {"Google ADS8415026549", ["google", "ads", "8415026549"]},
+        {"Google A000002123249", ["google", "a", "000002123249"]},
         {"Uber UBER * PENDING", ["uber", "uber", "pending"]},
         {"DL * UberRides", ["dl", "uberrides"]},
         {"ADOBE", ["adobe"]}
@@ -35,7 +34,7 @@ defmodule Iconify.NormalizerTest do
         {"C6BANK", ["c", "6", "bank"]},
         {"7ELEVEN", ["7", "eleven"]},
         {"0042", ["0042"]},
-        {"ads84150265", ["ads", "84150265"]}
+        {"A0000021232", ["a", "0000021232"]}
       ])
     end
 
@@ -188,7 +187,7 @@ defmodule Iconify.NormalizerTest do
 
   describe "tokens/1 properties on examples" do
     @inputs [
-              "DL * GOOGLE ADS84150265",
+              "DL * GOOGLE A0000021232",
               "Uber UBER * PENDING",
               "C6BANK",
               "McDonald\u{2019}s",

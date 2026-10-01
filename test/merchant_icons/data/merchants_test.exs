@@ -1,16 +1,17 @@
-defmodule Iconify.MerchantsTest do
+defmodule MerchantIcons.Data.MerchantsTest do
   use ExUnit.Case, async: true
 
-  alias Iconify.Icons
-  alias Iconify.Index
-  alias Iconify.Merchant
-  alias Iconify.Merchants
+  alias MerchantIcons.Data.Merchants
+  alias MerchantIcons.Icons
+  alias MerchantIcons.Matching.Index
+  alias MerchantIcons.Merchant
 
-  @icons_dir Path.expand("../../priv/icons", __DIR__)
+  @icons_dir Path.expand("../../../priv/icons", __DIR__)
 
   defp resolved_id(description) do
-    case Iconify.resolve(description) do
+    case MerchantIcons.resolve(description) do
       {:ok, %Merchant{id: id}} -> id
+      {:ok, :unknown} -> :unknown
       {:error, code, _message} -> code
     end
   end
@@ -57,14 +58,14 @@ defmodule Iconify.MerchantsTest do
     # This also catches aliases shared between merchants (ambiguous) and unreachable aliases.
     for %{id: id, name: name, aliases: aliases} <- Merchants.all(),
         {alias_text, _kind} <- aliases do
-      assert {:ok, %Merchant{id: ^id, name: ^name}} = Iconify.resolve(alias_text),
+      assert {:ok, %Merchant{id: ^id, name: ^name}} = MerchantIcons.resolve(alias_text),
              "alias #{inspect(alias_text)} does not resolve to #{id}"
     end
   end
 
   test "every resolved merchant carries validated SVG markup or nil" do
     for %{aliases: aliases} <- Merchants.all(), {alias_text, _kind} <- aliases do
-      {:ok, %Merchant{icon: icon}} = Iconify.resolve(alias_text)
+      {:ok, %Merchant{icon: icon}} = MerchantIcons.resolve(alias_text)
 
       assert is_nil(icon) or Icons.validate(icon) == {:ok, icon}
     end
@@ -78,7 +79,7 @@ defmodule Iconify.MerchantsTest do
 
   test "other leading tokens are not processor prefixes" do
     for prefix <- ["PAYPAL", "EB", "PG", "EC", "XY"] do
-      assert resolved_id("#{prefix} * Google") == :unknown_merchant
+      assert resolved_id("#{prefix} * Google") == :unknown
     end
   end
 
@@ -110,7 +111,7 @@ defmodule Iconify.MerchantsTest do
              "expected #{inspect(description)} to resolve to facebook"
     end
 
-    assert Iconify.resolve("FACEBK") == Iconify.resolve("FACEBOOK")
+    assert MerchantIcons.resolve("FACEBK") == MerchantIcons.resolve("FACEBOOK")
   end
 
   test "anthropic and claude are different merchants" do
@@ -120,7 +121,7 @@ defmodule Iconify.MerchantsTest do
 
   test "digits-only tokens are ignored after a :whole alias, other tokens are not" do
     assert resolved_id("UBERRIDES 12345") == "uber"
-    assert resolved_id("UBERRIDES 12X") == :unknown_merchant
+    assert resolved_id("UBERRIDES 12X") == :unknown
   end
 
   test "numbers can be part of an alias" do

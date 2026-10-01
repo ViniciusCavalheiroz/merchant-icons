@@ -1,7 +1,7 @@
-defmodule Iconify.Matcher do
+defmodule MerchantIcons.Matching.Matcher do
   @moduledoc false
 
-  # Deterministic matching of tokens against an `Iconify.Index`:
+  # Deterministic matching of tokens against an `MerchantIcons.Matching.Index`:
   #
   #     tokens |> skip_prefixes() |> find_candidates() |> select_by_priority()
   #
@@ -11,19 +11,15 @@ defmodule Iconify.Matcher do
   # digits-only token is noise after a `:whole` alias but content inside an alias such as
   # `C6 Bank`.
 
-  alias Iconify.Index
-  alias Iconify.Merchant
-  alias Iconify.Noise
+  alias MerchantIcons.Matching.Index
+  alias MerchantIcons.Matching.Noise
 
-  @spec match([String.t()], Index.t()) ::
-          {:ok, Merchant.t()} | {:error, :unknown | :ambiguous}
   def match(tokens, %Index{} = index) when is_list(tokens) do
     tokens
     |> skip_prefixes(index)
     |> find_candidates(index)
     |> select_by_priority()
   end
-
 
   defp skip_prefixes([], _index), do: []
 
@@ -35,7 +31,6 @@ defmodule Iconify.Matcher do
   end
 
   defp prefix?(token, %Index{prefixes: prefixes}), do: Map.has_key?(prefixes, token)
-
 
   defp find_candidates([], _index), do: []
 
@@ -58,7 +53,6 @@ defmodule Iconify.Matcher do
 
   defp accepts_remainder?(:leading, _remainder), do: true
   defp accepts_remainder?(:whole, remainder), do: Enum.all?(remainder, &Noise.digits_only?/1)
-
 
   defp select_by_priority([]), do: {:error, :unknown}
 

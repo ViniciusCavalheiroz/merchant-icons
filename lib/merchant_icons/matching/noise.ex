@@ -1,4 +1,4 @@
-defmodule Iconify.Noise do
+defmodule MerchantIcons.Matching.Noise do
   @moduledoc false
 
   # Noise rules used by the matcher.
