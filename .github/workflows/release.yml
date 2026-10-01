@@ -1,0 +1,30 @@
+name: Release
+
+# Runs only when a tag such as v0.1.0 is pushed. It creates the GitHub Release and nothing
+# else: it does not publish to Hex.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+# One run per tag, so a re-pushed tag never creates a second release in parallel.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          # Tags with a suffix (v1.0.0-rc.1) are marked as pre-releases and never become Latest.
+          prerelease: ${{ contains(github.ref_name, '-') }}
