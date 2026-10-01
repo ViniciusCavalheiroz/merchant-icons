@@ -20,36 +20,74 @@ defmodule MerchantIcons.Icons do
   #
   # The checks are deliberately strict and crude. A file that trips one of them has to be
   # cleaned (for example metadata with external URLs removed) before it can be shipped.
+  #
+  # Because the text is not parsed, the checks look at a "compact" copy of the file (lowercase,
+  # all ASCII whitespace removed). Browsers ignore tabs and newlines inside URLs and decode
+  # character references in attribute values, so `java<TAB>script:` or `jav&#97;script:` would
+  # slip past a literal comparison. Any `&` is therefore rejected, and no icon needs one.
+  #
+  # Files are limited in size and must be regular files (no symlinks): the library compiles on
+  # the machines of its users, so a tampered file must not make the build read other files or
+  # allocate unbounded memory.
 
   alias MerchantIcons.Matching.Index
 
   @type reason ::
           :empty
+          | :too_large
           | :invalid_utf8
           | :not_svg
+          | :trailing_content
           | :missing_view_box
           | :script
           | :foreign_object
+          | :embedded_content
           | :javascript_uri
+          | :data_uri
+          | :doctype
           | :entity
           | :event_handler
           | :external_reference
 
-  # Fragments that must not appear anywhere (compared in lowercase).
+  # Maximum size of an icon file, in bytes. The shipped icons are below 10 KB; the limit only
+  # exists so a tampered file cannot inflate the compiled module.
+  @max_bytes 100_000
+
+  # Fragments that must not appear anywhere (compared in lowercase, ignoring whitespace).
   @forbidden_fragments [
     {"<script", :script},
     {"<foreignobject", :foreign_object},
+    {"<iframe", :embedded_content},
+    {"<object", :embedded_content},
+    {"<embed", :embedded_content},
     {"javascript:", :javascript_uri},
+    {"data:", :data_uri},
+    {"<!doctype", :doctype},
     {"<!entity", :entity},
+    {"&", :entity},
     {"attributename=\"on", :event_handler},
-    {"attributename='on", :event_handler}
+    {"attributename='on", :event_handler},
+    {"attributename=on", :event_handler},
+    {"@import", :external_reference}
   ]
 
   # An attribute name starting with `on` can only follow whitespace, a quote or a slash.
-  @event_attribute_starts [" on", "\ton", "\non", "\ron", "\"on", "'on", "/on"]
+  # HTML treats form feed as whitespace too.
+  @event_attribute_starts [" on", "\ton", "\non", "\ron", "\fon", "\"on", "'on", "/on"]
 
   # The only URLs allowed to appear in an SVG: its XML namespaces.
   @namespaces ["http://www.w3.org/2000/svg", "http://www.w3.org/1999/xlink"]
+
+  # Anything that can start a request to another origin, or a navigation, once the namespaces
+  # are removed. `//` also catches protocol-relative URLs.
+  @external_markers ["http:", "https:", "ftp:", "file:", "//"]
+
+  # Attributes and CSS functions that may only point inside the document (`#id`).
+  @local_only_references ["href=", "src=", "url("]
+
+  @doc "Maximum size of an icon file, in bytes."
+  @spec max_bytes() :: pos_integer()
+  def max_bytes, do: @max_bytes
 
   @doc "Paths of the SVG files in a directory."
   @spec files(Path.t()) :: [Path.t()]
@@ -77,9 +115,11 @@ defmodule MerchantIcons.Icons do
   @spec validate(binary()) :: {:ok, String.t()} | {:error, reason()}
   def validate(content) do
     content
+    |> ensure_size()
     |> ensure_utf8()
     |> ensure_not_empty()
     |> ensure_svg_root()
+    |> ensure_svg_end()
     |> ensure_view_box()
     |> ensure_no_active_content()
   end
@@ -97,12 +137,29 @@ defmodule MerchantIcons.Icons do
 
     ensure!(valid_icon_name?(icon_name), "#{where} is not a valid icon name")
 
-    dir
-    |> Path.join(icon_name <> ".svg")
-    |> File.read()
-    |> case do
+    path = Path.join(dir, icon_name <> ".svg")
+
+    case File.lstat(path) do
+      {:ok, %File.Stat{type: :regular, size: size}} when size <= @max_bytes ->
+        read_validated!(path, where)
+
+      {:ok, %File.Stat{type: :regular}} ->
+        raise ArgumentError, "#{where} is invalid (too_large)"
+
+      {:ok, %File.Stat{}} ->
+        raise ArgumentError, "#{where} must be a regular file, not a link or directory"
+
+      {:error, :enoent} ->
+        raise ArgumentError, "#{where} has no file #{icon_name}.svg"
+
+      {:error, reason} ->
+        raise ArgumentError, "#{where} could not be read (#{reason})"
+    end
+  end
+
+  defp read_validated!(path, where) do
+    case File.read(path) do
       {:ok, content} -> validated!(content, where)
-      {:error, :enoent} -> raise ArgumentError, "#{where} has no file #{icon_name}.svg"
       {:error, reason} -> raise ArgumentError, "#{where} could not be read (#{reason})"
     end
   end
@@ -147,7 +204,13 @@ defmodule MerchantIcons.Icons do
 
   # validate
 
-  defp ensure_utf8(content) do
+  # The size check is O(1) and runs before anything scans the content.
+  defp ensure_size(content) when byte_size(content) > @max_bytes, do: {:error, :too_large}
+  defp ensure_size(content), do: {:ok, content}
+
+  defp ensure_utf8({:error, _} = error), do: error
+
+  defp ensure_utf8({:ok, content}) do
     case String.valid?(content) do
       true -> {:ok, content}
       false -> {:error, :invalid_utf8}
@@ -172,6 +235,17 @@ defmodule MerchantIcons.Icons do
     end
   end
 
+  # Nothing may follow the closing tag: HTML elements placed after `</svg>` would be outside
+  # the SVG when the markup is inlined.
+  defp ensure_svg_end({:error, _} = error), do: error
+
+  defp ensure_svg_end({:ok, content} = ok) do
+    case content |> String.trim_trailing() |> String.ends_with?("</svg>") do
+      true -> ok
+      false -> {:error, :trailing_content}
+    end
+  end
+
   defp ensure_view_box({:error, _} = error), do: error
 
   defp ensure_view_box({:ok, content} = ok) do
@@ -188,23 +262,34 @@ defmodule MerchantIcons.Icons do
 
   defp ensure_no_active_content({:ok, content} = ok) do
     lowered = String.downcase(content)
+    compact = remove_whitespace(lowered)
 
-    checks = [&forbidden_fragment/1, &event_handler/1, &external_reference/1]
+    checks = [
+      fn _lowered, compact -> forbidden_fragment(compact) end,
+      fn lowered, _compact -> event_handler(lowered) end,
+      fn _lowered, compact -> external_reference(compact) end,
+      fn _lowered, compact -> non_local_reference(compact) end
+    ]
 
-    case Enum.find_value(checks, & &1.(lowered)) do
+    case Enum.find_value(checks, & &1.(lowered, compact)) do
       nil -> ok
       reason -> {:error, reason}
     end
   end
 
-  # active content checks
-
-  defp forbidden_fragment(lowered) do
-    Enum.find_value(@forbidden_fragments, &fragment_reason(&1, lowered))
+  # ASCII whitespace that HTML and URL parsers ignore or treat as separators.
+  defp remove_whitespace(text) do
+    String.replace(text, [" ", "\t", "\n", "\r", "\f"], "")
   end
 
-  defp fragment_reason({fragment, reason}, lowered) do
-    case String.contains?(lowered, fragment) do
+  # active content checks
+
+  defp forbidden_fragment(compact) do
+    Enum.find_value(@forbidden_fragments, &fragment_reason(&1, compact))
+  end
+
+  defp fragment_reason({fragment, reason}, compact) do
+    case String.contains?(compact, fragment) do
       true -> reason
       false -> nil
     end
@@ -239,12 +324,38 @@ defmodule MerchantIcons.Icons do
   defp attribute_name_rest?(rest),
     do: rest |> String.trim_leading() |> String.starts_with?("=")
 
-  defp external_reference(lowered) do
-    without_namespaces = Enum.reduce(@namespaces, lowered, &String.replace(&2, &1, ""))
+  defp external_reference(compact) do
+    without_namespaces = Enum.reduce(@namespaces, compact, &String.replace(&2, &1, ""))
 
-    case String.contains?(without_namespaces, ["http:", "https:"]) do
+    case String.contains?(without_namespaces, @external_markers) do
       true -> :external_reference
       false -> nil
+    end
+  end
+
+  # `href=`, `src=` and `url(` may only reference something inside the document (`#id`), with
+  # or without quotes. Relative paths would make the consumer's browser request files from its
+  # own origin.
+  defp non_local_reference(compact) do
+    local_only? =
+      @local_only_references
+      |> Enum.flat_map(&:binary.matches(compact, &1))
+      |> Enum.all?(&local_reference?(&1, compact))
+
+    case local_only? do
+      true -> nil
+      false -> :external_reference
+    end
+  end
+
+  defp local_reference?({position, length}, compact) do
+    rest_start = position + length
+    rest = binary_part(compact, rest_start, byte_size(compact) - rest_start)
+
+    case rest do
+      <<quote, "#", _rest::binary>> when quote in [?", ?'] -> true
+      <<"#", _rest::binary>> -> true
+      _other -> false
     end
   end
 end
