@@ -1,6 +1,6 @@
 defmodule MerchantIcons do
   @moduledoc """
-  Identifies the merchant behind a financial transaction description and provides its icon.
+  Identifies a merchant from its description and provides its icon.
 
   MerchantIcons only identifies merchants and returns the data an application needs to display the
   company icon. It does not deal with amounts, currencies, categories or any other financial

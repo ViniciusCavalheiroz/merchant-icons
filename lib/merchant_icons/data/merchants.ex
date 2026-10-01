@@ -248,7 +248,7 @@ defmodule MerchantIcons.Data.Merchants do
     %{
       id: "openrouter",
       name: "OpenRouter",
-      icon: nil,
+      icon: "openrouter_light",
       aliases: [{"openrouter", :leading}]
     },
     %{

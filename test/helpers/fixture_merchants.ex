@@ -3,7 +3,7 @@ defmodule MerchantIcons.Test.Helpers.FixtureMerchants do
 
   # Artificial, synthetic datasets used to exercise behaviour that the production dataset does
   # not contain: shared aliases, priority ties and a merchant with only a :whole alias. Nothing
-  # here is real merchant or transaction data.
+  # here is real merchant data.
 
   alias MerchantIcons.Matching.Index
 

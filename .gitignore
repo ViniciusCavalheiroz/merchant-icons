@@ -27,3 +27,5 @@ merchant_icons-*.tar
 CLAUDE.MD
 TEST.csv
 .claude
+
+.DS_Store

@@ -1,6 +1,6 @@
 # MerchantIcons
 
-> Turn a noisy transaction description into a known merchant and its icon. Offline, stateless and
+> Turn a noisy merchant description into a known merchant and its icon. Offline, stateless and
 > safe by design.
 
 ```elixir
@@ -15,7 +15,7 @@ Bank and card statements describe merchants in messy ways: processor prefixes, c
 statuses, random casing and accents.
 
 ```text
-DL * GOOGLE A000000
+DL * GOOGLE A0000021232
 Google ADS2397919998
 Uber UBER * PENDING
 DL * UberRides
@@ -28,8 +28,9 @@ ADOBE
    characters removed);
 2. splits it into tokens and ignores a known processor prefix;
 3. **matches** it against a small static dataset of merchants;
-4. returns a `%MerchantIcons.Merchant{}` with the merchant `id`, `name` and, when available, the
-   complete **SVG markup** of its icon.
+4. returns `{:ok, %MerchantIcons.Merchant{}}` with the merchant `id`, `name` and, when available,
+   the complete **SVG markup** of its icon, or `{:ok, :unknown}` when the merchant is not in the
+   dataset.
 
 What it deliberately is **not**:
 
@@ -107,13 +108,13 @@ raising it later is compatible, lowering it is not.
 
 `resolve/1` returns one of:
 
-| Result                         | Meaning                                                         |
-|--------------------------------|-----------------------------------------------------------------|
-| `{:ok, %MerchantIcons.Merchant{}}` | a merchant was identified                                   |
-| `{:ok, :unknown}`              | valid description, but no merchant in the dataset matches it    |
-| `{:error, :invalid_input, msg}`    | not a binary, invalid UTF-8, or empty/blank                 |
-| `{:error, :input_too_large, msg}`  | larger than 1024 bytes                                      |
-| `{:error, :ambiguous_merchant, msg}` | several merchants match and no rule picks one             |
+| Result                               | Meaning                                                      |
+|--------------------------------------|--------------------------------------------------------------|
+| `{:ok, %MerchantIcons.Merchant{}}`   | a merchant was identified                                    |
+| `{:ok, :unknown}`                    | valid description, but no merchant in the dataset matches it |
+| `{:error, :invalid_input, msg}`      | not a binary, invalid UTF-8, or empty/blank                  |
+| `{:error, :input_too_large, msg}`    | larger than 1024 bytes                                       |
+| `{:error, :ambiguous_merchant, msg}` | several merchants match and no rule picks one                |
 
 An unknown merchant is **not** an error: it means the dataset does not cover that merchant yet.
 
@@ -146,9 +147,14 @@ keys you need.
 * Icons live in `priv/icons/*.svg` and are embedded in the library at compile time. Getting an
   icon never touches the network or the file system.
 * The markup is meant to be inlined in HTML and scaled with CSS (every icon has a `viewBox`).
-* Every SVG is validated while the library compiles. Scripts, event handlers, `foreignObject`,
-  entities, `javascript:` URIs and external references are rejected, and a bad file stops the
-  build.
+* Every SVG is validated while the library compiles, and a bad file stops the build. The checks
+  are deliberately strict and work on the text of the file (there is no XML parser):
+  * rejected: scripts, event handlers (`on*`), `foreignObject`, `<iframe>`, `<object>`,
+    `<embed>`, `<!DOCTYPE>`, entities and any `&`, `javascript:` and `data:` URIs, and `@import`;
+  * `href`, `src` and `url(...)` may only point to an `#id` inside the same file, so any other
+    reference, such as `http:`, `//host` or a relative path, is rejected;
+  * the file must start with `<svg` (with a `viewBox`), end with `</svg>`, be a regular file (no
+    symlinks) and be at most 100,000 bytes.
 * When `icon` is `nil`, the merchant has no icon yet. Treat it like an unknown icon and choose your
   own fallback.
 
@@ -159,9 +165,9 @@ Merchant logos are trademarks of their respective owners.
 `resolve/1` emits one [`:telemetry`](https://hexdocs.pm/telemetry) event when it identifies a
 merchant or concludes that it is unknown:
 
-| Event                           | Measurements | Metadata                                                  |
-|---------------------------------|--------------|-----------------------------------------------------------|
-| `[:merchant_icons, :resolve]`   | `%{count: 1}`| `%{result: :merchant_resolved}` or `%{result: :merchant_unknown}` |
+| Event                         | Measurements  | Metadata                                                          |
+|-------------------------------|---------------|-------------------------------------------------------------------|
+| `[:merchant_icons, :resolve]` | `%{count: 1}` | `%{result: :merchant_resolved}` or `%{result: :merchant_unknown}` |
 
 ```elixir
 :telemetry.attach(
@@ -182,9 +188,10 @@ The library does not use `Logger`.
 * **Normalization:** Unicode NFKD, accents removed, case folded, zero-width characters removed.
 * **Tokens:** the text is split at separators and at letter/digit boundaries. CamelCase is not
   split, so `UberRides` is a single token.
-* **Processor prefixes:** a leading `dl`, `dm`, `ebn` or `ppro` token is ignored, so
-  `DL * GOOGLE A0000021232` is matched as `GOOGLE ADS 84150265`. Any other leading token (for
-  example `PAYPAL`) is not skipped.
+* **Processor prefixes:** leading `dl`, `dm`, `ebn` or `ppro` tokens are ignored (also when
+  repeated), so `DL * GOOGLE A0000021232` is matched as `GOOGLE A 0000021232`. Any other leading
+  token (for example `PAYPAL`) is not skipped, and a prefix in the middle of a description is not
+  ignored.
 * **Aliases** are token sequences of two kinds:
   * `:leading`: the alias must start the description, and anything may follow it.
   * `:whole`: the alias must account for the whole description; only digits-only tokens may
@@ -204,8 +211,8 @@ Matching is deterministic and there is **no substring matching**.
 
 ## Limitations
 
-* **Small dataset:** it currently contains 109 merchants, and only four of them have an icon
-  (Google, Adobe, OpenAI and Spotify). The others return `icon: nil`.
+* **Small dataset:** it currently contains 109 merchants, and only five of them have an icon
+  (Google, Adobe, OpenAI, Spotify and OpenRouter). The others return `icon: nil`.
 * **Unknown merchants:** anything outside the dataset returns `{:ok, :unknown}`. Merchants are
   added to the library itself; there is no API for custom merchants or aliases yet.
 * **Conservative matching:** because there is no substring matching, a name glued to a code (for
@@ -216,4 +223,5 @@ Matching is deterministic and there is **no substring matching**.
   and non-Latin descriptions are preserved as content and will usually be unknown.
 * **Input limit:** 1024 bytes, provisional.
 * **Telemetry:** only resolved and unknown results are reported.
-* **Not on Hex yet**, and no license has been chosen.
+* **Not on Hex yet.** `mix.exs` declares the MIT license, but the `LICENSE` file is not in the
+  repository yet.

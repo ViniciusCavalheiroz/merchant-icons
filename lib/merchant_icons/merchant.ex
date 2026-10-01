@@ -3,7 +3,7 @@ defmodule MerchantIcons.Merchant do
   A merchant known to MerchantIcons.
 
   The struct only ever contains data from the merchant dataset. It never contains any part of
-  the transaction description that was resolved.
+  the merchant description that was resolved.
 
   ## Fields
 

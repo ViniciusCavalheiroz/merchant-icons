@@ -1,20 +1,6 @@
 defmodule MerchantIcons.Matching.Normalizer do
   @moduledoc false
 
-  # Turns an untrusted transaction description into a list of tokens:
-  #
-  #     input |> validate() |> canonicalize() |> reject_blank() |> tokenize()
-  #
-  # Regular expressions are allowed here and only here (CLAUDE.md, section 10). Every pattern is
-  # a fixed literal made of character classes with a single quantifier, so matching is linear,
-  # and the input is already limited to `@max_input_bytes`. Patterns are written inline because
-  # a regex stored in a module attribute breaks on OTP 28. Unicode categories come from the OTP
-  # tables; the normalizer tests guard against silent changes between versions.
-  #
-  # On OTP 28 each call compiles its regexes. That cost is accepted until it is measured.
-  #
-  # The input limit is provisional: raising it later is compatible, lowering it is not.
-
   @max_input_bytes 1024
 
   @type reason :: :not_binary | :too_large | :invalid_utf8 | :blank

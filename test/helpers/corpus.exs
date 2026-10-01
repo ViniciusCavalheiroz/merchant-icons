@@ -1,7 +1,7 @@
 defmodule MerchantIcons.Test.Helpers.Corpus do
   @moduledoc false
 
-  # Synthetic descriptions. None of them comes from a real transaction: codes and suffixes are
+  # Synthetic descriptions. None of them comes from a real statement: codes and suffixes are
   # made up. The shapes are illustrative of the behaviour under test, not claims about how any
   # processor or merchant really formats descriptions.
 

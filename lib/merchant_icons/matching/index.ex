@@ -2,10 +2,10 @@ defmodule MerchantIcons.Matching.Index do
   @moduledoc false
 
   # Lookup structure built from a dataset. Aliases go through the same normalization as
-  # transaction descriptions and are grouped by their first token.
+  # merchant descriptions and are grouped by their first token.
   #
   # Invalid data raises `ArgumentError` (at compile time for the production dataset). Messages
-  # only mention dataset values, never transaction data.
+  # only mention dataset values, never input from a description.
 
   alias MerchantIcons.Matching.Noise
   alias MerchantIcons.Matching.Normalizer

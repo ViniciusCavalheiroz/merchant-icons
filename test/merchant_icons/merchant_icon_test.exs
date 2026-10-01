@@ -5,7 +5,7 @@ defmodule MerchantIcons.MerchantIconTest do
   alias MerchantIcons.Icons
   alias MerchantIcons.Merchant
 
-  @required_icons ~w(adobe google openai spotify)
+  @required_icons ~w(adobe google openai spotify openrouter)
 
   @with_icon for merchant <- Merchants.all(), is_binary(merchant.icon), do: merchant
   @without_icon for merchant <- Merchants.all(), is_nil(merchant.icon), do: merchant

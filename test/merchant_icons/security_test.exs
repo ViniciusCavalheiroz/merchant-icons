@@ -8,7 +8,7 @@ defmodule MerchantIcons.SecurityTest do
 
   # Invisible and ambiguous characters are always written as \u{...} escapes in this file.
 
-  # A unique marker that stands for sensitive transaction data. It must never appear in any
+  # A unique marker that stands for sensitive input data. It must never appear in any
   # result, message or log line.
   @canary "CANARY-4821"
 
@@ -30,7 +30,7 @@ defmodule MerchantIcons.SecurityTest do
     ]
   end
 
-  describe "no transaction data in results" do
+  describe "no input data in results" do
     test "results and messages never contain the input" do
       for input <- inputs_with_canary() do
         result = MerchantIcons.resolve(input)
