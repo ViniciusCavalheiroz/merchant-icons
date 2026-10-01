@@ -32,16 +32,17 @@ if Code.ensure_loaded?(Phoenix.Component) do
     # Deterministic badge backgrounds for the initial fallback.
     @palette ~w(#0F766E #1D4ED8 #B91C1C #A21CAF #C2410C #047857 #4338CA #BE123C)
 
-    attr :name, :string, required: true, doc: "raw merchant description/name to resolve"
+    attr(:name, :string, required: true, doc: "raw merchant description/name to resolve")
 
-    attr :fallback, :string,
+    attr(:fallback, :string,
       default: nil,
       doc: "SVG markup to render when the merchant has no bundled icon"
+    )
 
-    attr :size, :integer, default: 32, doc: "badge size in pixels"
-    attr :class, :string, default: nil, doc: "extra classes for the outer element"
-    attr :alt, :string, default: nil, doc: "image alt text; defaults to the merchant name"
-    attr :rest, :global
+    attr(:size, :integer, default: 32, doc: "badge size in pixels")
+    attr(:class, :string, default: nil, doc: "extra classes for the outer element")
+    attr(:alt, :string, default: nil, doc: "image alt text; defaults to the merchant name")
+    attr(:rest, :global)
 
     @doc "Renders the icon of the merchant resolved from `name` as a self-contained badge."
     def merchant_icon(assigns) do
@@ -55,8 +56,14 @@ if Code.ensure_loaded?(Phoenix.Component) do
         |> assign(:alt, assigns.alt || name)
         |> assign(:initial, initial(name))
         |> assign(:outer_style, outer_style(assigns.size, src, name))
-        |> assign(:image_style, "width:#{round(assigns.size * 0.72)}px;height:#{round(assigns.size * 0.72)}px;object-fit:contain;")
-        |> assign(:initial_style, "color:#fff;font-weight:600;line-height:1;font-size:#{round(assigns.size * 0.42)}px;")
+        |> assign(
+          :image_style,
+          "width:#{round(assigns.size * 0.72)}px;height:#{round(assigns.size * 0.72)}px;object-fit:contain;"
+        )
+        |> assign(
+          :initial_style,
+          "color:#fff;font-weight:600;line-height:1;font-size:#{round(assigns.size * 0.42)}px;"
+        )
 
       ~H"""
       <span class={@class} style={@outer_style} {@rest}>
