@@ -28,7 +28,7 @@ defmodule MerchantIcons.Data.Merchants do
     %{
       id: "uber",
       name: "Uber",
-      icon: nil,
+      icon: "uber_icon_light",
       aliases: [{"uber", :leading}, {"uberrides", :whole}]
     },
     %{id: "adobe", name: "Adobe", icon: "adobe", aliases: [{"adobe", :leading}]},
@@ -37,14 +37,14 @@ defmodule MerchantIcons.Data.Merchants do
     %{
       id: "amazon",
       name: "Amazon",
-      icon: nil,
+      icon: "amazon_default",
       aliases: [{"amazon", :leading}, {"amazonmktplc", :leading}]
     },
     %{
       id: "aws",
       name: "AWS",
-      icon: nil,
-      aliases: [{"amazon web services", :leading}, {"amazon aws", :leading}]
+      icon: "aws_light",
+      aliases: [{"amazon web services", :leading}, {"amazon aws", :leading}, {"aws", :leading}]
     },
     %{
       id: "apple",
@@ -61,7 +61,7 @@ defmodule MerchantIcons.Data.Merchants do
     %{
       id: "facebook",
       name: "Facebook",
-      icon: nil,
+      icon: "facebook",
       aliases: [{"facebk", :leading}, {"facebook", :leading}]
     },
     %{id: "stape", name: "Stape", icon: nil, aliases: [{"stape", :leading}]},

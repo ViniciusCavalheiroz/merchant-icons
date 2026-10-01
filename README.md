@@ -292,8 +292,9 @@ Matching is deterministic and there is **no substring matching**.
 
 ## Limitations
 
-* **Small dataset:** it currently contains 109 merchants, and only five of them have an icon
-  (Google, Adobe, OpenAI, Spotify and OpenRouter). The others return `icon: nil`.
+* **Small dataset:** it currently contains 109 merchants, and only nine of them have an icon
+  (Google, Adobe, OpenAI, Spotify, OpenRouter, Uber, Amazon, AWS and Facebook). The others return
+  `icon: nil`.
 * **Unknown merchants:** anything outside the dataset returns `{:ok, :unknown}`. Merchants are
   added to the library itself; there is no API for custom merchants or aliases yet.
 * **Conservative matching:** because there is no substring matching, a name glued to a code (for
