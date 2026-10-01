@@ -306,4 +306,163 @@ defmodule MerchantIcons.IconsTest do
       refute error =~ "CANARY-4821"
     end
   end
+
+  describe "validate/1 element allowlist" do
+    # S1: HTML between two svg roots would end up outside the svg when inlined.
+    test "rejects content between two svg roots" do
+      markup = @minimal <> "<div>outside</div>" <> @minimal
+
+      assert invalid(markup) == {:error, {:disallowed_element, "div"}}
+      assert invalid(@minimal <> @minimal) == {:error, :trailing_content}
+    end
+
+    # S2: HTML elements that break out of the svg, and a form with a relative action.
+    test "rejects html elements, including ones that break out of the svg" do
+      assert invalid(with_view_box(~s|<p><form action="/transfer" method="post"></form></p>|)) ==
+               {:error, {:disallowed_element, "p"}}
+
+      for element <- ~w(div p form button img input table a span body) do
+        assert invalid(with_view_box("<#{element}></#{element}>")) ==
+                 {:error, {:disallowed_element, element}}
+      end
+    end
+
+    # S3: CSS can reference resources in ways the url( check does not see.
+    test "rejects style elements" do
+      assert invalid(with_view_box(~s|<style>*{background:image-set("x.png" 1x)}</style>|)) ==
+               {:error, {:disallowed_element, "style"}}
+    end
+
+    # S4: SMIL animation can rewrite href at runtime.
+    test "rejects animation elements" do
+      markup = with_view_box(~s|<a><animate attributeName = "href" to="/x"/></a>|)
+
+      assert invalid(markup) == {:error, {:disallowed_element, "a"}}
+
+      assert invalid(with_view_box(~s|<animate attributeName="fill" to="red"/>|)) ==
+               {:error, {:disallowed_element, "animate"}}
+    end
+
+    test "names the first rejected element" do
+      markup = with_view_box("<path/><text>x</text><style></style>")
+
+      assert invalid(markup) == {:error, {:disallowed_element, "text"}}
+    end
+
+    test "element names are case-sensitive and must be known" do
+      assert invalid(with_view_box("<Path/>")) == {:error, {:disallowed_element, "Path"}}
+
+      assert invalid(with_view_box("<unknown-element/>")) ==
+               {:error, {:disallowed_element, "unknown-element"}}
+    end
+
+    test "rejects markup that is not an element" do
+      assert {:error, {:disallowed_element, _name}} = invalid(with_view_box("<!-- comment -->"))
+      assert {:error, {:disallowed_element, _name}} = invalid(with_view_box("<![CDATA[x]]>"))
+      assert {:error, {:disallowed_element, _name}} = invalid(with_view_box("<?pi x?>"))
+      assert {:error, {:disallowed_element, ""}} = invalid(with_view_box("< path/>"))
+    end
+
+    test "an element name that is too long is cut" do
+      long = String.duplicate("a", 500)
+
+      assert {:error, {:disallowed_element, name}} = invalid(with_view_box("<#{long}/>"))
+      assert byte_size(name) <= 40
+    end
+
+    test "rejects an unbalanced svg" do
+      assert invalid(~s|<svg viewBox="0 0 1 1"><svg></svg>|) == {:error, :unbalanced_svg}
+    end
+
+    test "accepts nested svg elements and the allowed drawing elements" do
+      markup =
+        with_view_box(
+          ~s|<defs><linearGradient id="a"><stop offset="0"/></linearGradient>| <>
+            ~s|<clipPath id="c"><rect/></clipPath><filter id="f"><feGaussianBlur/></filter>| <>
+            ~s|<pattern id="p" width="1" height="1"><rect/></pattern></defs>| <>
+            ~s|<g><path d="M0 0"/><circle/></g><svg viewBox="0 0 1 1"><rect/></svg>|
+        )
+
+      assert Icons.validate(markup) == {:ok, markup}
+    end
+
+    test "every bundled icon passes validation" do
+      files = Icons.files(@icons_dir)
+
+      assert files != []
+
+      for path <- files do
+        assert {:ok, _svg} = Icons.validate(File.read!(path)), "#{Path.basename(path)} is invalid"
+      end
+    end
+  end
+
+  describe "validate/1 style attribute" do
+    # The gap found while reviewing the allowlist: CSS in `style=` reaches resources that the
+    # `url(` check does not see.
+    test "rejects the style attribute, whatever it contains" do
+      for style <- [
+            ~s|style="fill:red"|,
+            ~s|style="background:url(x.png)"|,
+            ~s|style="mask-image:image-set('x.png' 1x)"|,
+            ~s|style='fill:red'|,
+            "style=red",
+            ~s|style = "fill:red"|,
+            "style\n=\n\"fill:red\""
+          ] do
+        assert invalid(with_view_box("<rect #{style}/>")) == {:error, :style_attribute},
+               "#{inspect(style)} was accepted"
+      end
+    end
+
+    test "rejects the attribute in any case and in any position" do
+      assert invalid(with_view_box(~s|<rect STYLE="fill:red"/>|)) == {:error, :style_attribute}
+      assert invalid(with_view_box(~s|<rect fill="red"style="x"/>|)) == {:error, :style_attribute}
+      assert invalid(with_view_box(~s|<rect/style="x"/>|)) == {:error, :style_attribute}
+      assert invalid(~s|<svg viewBox="0 0 1 1" style="x"></svg>|) == {:error, :style_attribute}
+      assert invalid(with_view_box("<rect\tstyle=\"x\"/>")) == {:error, :style_attribute}
+    end
+
+    test "does not mistake other attributes or text for the style attribute" do
+      for markup <- [
+            ~s|<rect class="style"/>|,
+            ~s|<rect id="style"/>|,
+            ~s|<rect data-style="x"/>|,
+            ~s|<rect styles="x"/>|,
+            ~s|<rect fill="red" stroke-style="x"/>|,
+            ~s|<title>style</title>|
+          ] do
+        svg = with_view_box(markup)
+
+        assert Icons.validate(svg) == {:ok, svg}, "#{markup} was rejected"
+      end
+    end
+  end
+
+  describe "embed!/2 messages for the new rejections" do
+    setup do
+      dir = Path.join(System.tmp_dir!(), "merchant_icons_#{System.unique_integer([:positive])}")
+      File.mkdir_p!(dir)
+      on_exit(fn -> File.rm_rf!(dir) end)
+      %{dir: dir}
+    end
+
+    test "names the rejected element", %{dir: dir} do
+      File.write!(Path.join(dir, "logo.svg"), with_view_box("<path/><text>x</text>"))
+
+      error = message(fn -> Icons.embed!([definition(%{icon: "logo"})], dir) end)
+
+      assert error =~ "disallowed_element"
+      assert error =~ ~s|"text"|
+    end
+
+    test "reports the style attribute without printing its value", %{dir: dir} do
+      File.write!(Path.join(dir, "logo.svg"), with_view_box(~s|<rect style="CANARY-9137"/>|))
+
+      error = message(fn -> Icons.embed!([definition(%{icon: "logo"})], dir) end)
+
+      assert error =~ "style_attribute"
+      refute error =~ "CANARY-9137"
+    end
+  end
 end
