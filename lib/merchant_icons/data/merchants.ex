@@ -404,6 +404,6 @@ defmodule MerchantIcons.Data.Merchants do
     %{id: "spotify", name: "Spotify", icon: "spotify", aliases: [{"spotify", :leading}]}
   ]
 
-  @spec all() :: [MerchantIcons.Index.definition()]
+  @spec all() :: [MerchantIcons.Matching.Index.definition()]
   def all, do: @merchants
 end

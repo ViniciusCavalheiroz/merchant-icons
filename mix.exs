@@ -1,14 +1,14 @@
 defmodule MerchantIcons.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.2.0"
   @source_url "https://github.com/ViniciusCavalheiroz/merchant-icons"
 
   def project do
     [
       app: :merchant_icons,
       version: @version,
-      elixir: "~> 1.20",
+      elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       # test/helpers holds modules loaded by test_helper.exs, not test files.
       test_ignore_filters: [&String.starts_with?(&1, "test/helpers/")],
@@ -51,6 +51,7 @@ defmodule MerchantIcons.MixProject do
       extras: ["README.md", "LICENSE"],
       groups_for_modules: [
         API: [MerchantIcons],
+        Components: [MerchantIcons.Components],
         Data: [MerchantIcons.Merchant]
       ],
       skip_undefined_reference_warnings_on: ["README.md"]
@@ -61,6 +62,10 @@ defmodule MerchantIcons.MixProject do
   defp deps do
     [
       {:telemetry, "~> 1.4.2"},
+      # Optional: only needed by MerchantIcons.Components. Consumers that use the
+      # lib purely as a resolver do not pull Phoenix in. Available in this lib's
+      # own build and tests so the component compiles and is tested here.
+      {:phoenix_live_view, "~> 1.0", optional: true},
       {:ex_doc, "~> 0.38", only: :dev, runtime: false}
     ]
   end
