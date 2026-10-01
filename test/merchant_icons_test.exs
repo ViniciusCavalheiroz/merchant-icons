@@ -6,6 +6,7 @@ defmodule MerchantIconsTest do
   alias MerchantIcons.Test.Helpers.Corpus
 
   doctest MerchantIcons
+  doctest MerchantIcons.Merchant
 
   # Invisible and ambiguous characters are always written as \u{...} escapes in this file.
 

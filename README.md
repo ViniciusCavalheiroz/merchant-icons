@@ -1,5 +1,8 @@
 # MerchantIcons
 
+[![Hex.pm](https://img.shields.io/hexpm/v/merchant_icons.svg)](https://hex.pm/packages/merchant_icons)
+[![Docs](https://img.shields.io/badge/docs-hexdocs-purple.svg)](https://hexdocs.pm/merchant_icons)
+
 > Turn a noisy merchant description into a known merchant and its icon. Offline, stateless and
 > safe by design.
 
@@ -45,7 +48,7 @@ What it deliberately is **not**:
 
 Requires Elixir `~> 1.20`. The only dependency is [`:telemetry`](https://hex.pm/packages/telemetry).
 
-The library is not published on Hex yet. Once it is, add it to `mix.exs`:
+Add `merchant_icons` to your dependencies in `mix.exs`:
 
 ```elixir
 def deps do
@@ -94,6 +97,43 @@ Examples of what resolves to what:
 | `DL * UberRides`          | `Uber`                    |
 | `ADOBE`                   | `Adobe`                   |
 | `PADARIA DO ZE 0042`      | `{:ok, :unknown}`         |
+
+## Usage in a Phoenix application
+
+`merchant.icon` is trusted markup that ships with the library, so it can be rendered unescaped
+with `Phoenix.HTML.raw/1`. Never do this with text that came from the description: the
+description is never part of the struct.
+
+```elixir
+defmodule MyAppWeb.MerchantComponents do
+  use Phoenix.Component
+
+  attr :description, :string, required: true
+
+  def merchant(assigns) do
+    merchant =
+      case MerchantIcons.resolve(assigns.description) do
+        {:ok, %MerchantIcons.Merchant{} = merchant} -> merchant
+        {:ok, :unknown} -> nil
+        {:error, _code, _message} -> nil
+      end
+
+    assigns = assign(assigns, :merchant, merchant)
+
+    ~H"""
+    <span :if={@merchant} class="merchant">
+      <span :if={@merchant.icon} class="merchant-icon">{Phoenix.HTML.raw(@merchant.icon)}</span>
+      {@merchant.name}
+    </span>
+    <%!-- Unknown merchant or error: show the original text, which HEEx escapes. --%>
+    <span :if={!@merchant} class="merchant">{@description}</span>
+    """
+  end
+end
+```
+
+This uses the `{...}` syntax of Phoenix LiveView 1.0 and later. Size the icon with CSS, for
+example `.merchant-icon svg { width: 1.5rem; height: 1.5rem; }`.
 
 ## Input and output
 
@@ -223,5 +263,3 @@ Matching is deterministic and there is **no substring matching**.
   and non-Latin descriptions are preserved as content and will usually be unknown.
 * **Input limit:** 1024 bytes, provisional.
 * **Telemetry:** only resolved and unknown results are reported.
-* **Not on Hex yet.** `mix.exs` declares the MIT license, but the `LICENSE` file is not in the
-  repository yet.

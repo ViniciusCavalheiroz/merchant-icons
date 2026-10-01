@@ -19,6 +19,15 @@ defmodule MerchantIcons.Merchant do
   The icon is left out of `inspect/1` because of its size. When serializing a merchant, pick
   the fields you need instead of the whole struct.
 
+  ## Examples
+
+      iex> {:ok, merchant} = MerchantIcons.resolve("DL * GOOGLE A0000021232")
+      iex> {merchant.id, merchant.name}
+      {"google", "Google"}
+      iex> "<svg" <> _ = merchant.icon
+      iex> inspect(merchant) =~ "<svg"
+      false
+
   New fields may be added in minor versions. Match on the keys you need (`%MerchantIcons.Merchant{id:
   id}`) instead of assuming the complete set of fields.
   """

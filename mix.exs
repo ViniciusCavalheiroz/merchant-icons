@@ -1,12 +1,13 @@
 defmodule MerchantIcons.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
   @source_url "https://github.com/ViniciusCavalheiroz/merchant-icons"
 
   def project do
     [
       app: :merchant_icons,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
       # test/helpers holds modules loaded by test_helper.exs, not test files.
@@ -14,6 +15,8 @@ defmodule MerchantIcons.MixProject do
       description: description(),
       package: package(),
       source_url: @source_url,
+      homepage_url: @source_url,
+      docs: docs(),
       deps: deps()
     ]
   end
@@ -35,14 +38,30 @@ defmodule MerchantIcons.MixProject do
     [
       licenses: ["MIT"],
       links: %{"GitHub" => @source_url},
-      files: ~w(lib priv/icons mix.exs README.md)
+      maintainers: ["Vinicius Cavalheiro Martins da Luz"],
+      files: ~w(lib priv/icons/*.svg mix.exs README.md LICENSE)
+    ]
+  end
+
+  defp docs do
+    [
+      main: "readme",
+      name: "MerchantIcons",
+      source_ref: "v#{@version}",
+      extras: ["README.md", "LICENSE"],
+      groups_for_modules: [
+        API: [MerchantIcons],
+        Data: [MerchantIcons.Merchant]
+      ],
+      skip_undefined_reference_warnings_on: ["README.md"]
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:telemetry, "~> 1.4.2"}
+      {:telemetry, "~> 1.4.2"},
+      {:ex_doc, "~> 0.38", only: :dev, runtime: false}
     ]
   end
 end
