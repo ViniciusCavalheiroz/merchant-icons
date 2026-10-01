@@ -7,7 +7,7 @@
 > safe by design.
 
 ```elixir
-iex> {:ok, merchant} = MerchantIcons.resolve("DL * GOOGLE A0000021232")
+iex> {:ok, merchant} = MerchantIcons.resolve("DL * GOOGLE A0000033333")
 iex> {merchant.id, merchant.name}
 {"google", "Google"}
 ```
@@ -18,8 +18,8 @@ Bank and card statements describe merchants in messy ways: processor prefixes, c
 statuses, random casing and accents.
 
 ```text
-DL * GOOGLE A0000021232
-Google ADS2397919998
+DL * GOOGLE A0000033333
+Google A0000033333
 Uber UBER * PENDING
 DL * UberRides
 ADOBE
@@ -79,7 +79,7 @@ It composes naturally with pipelines and pattern matching:
 
 ```elixir
 with_icon =
-  for description <- ["ADOBE", "Google ADS2397919998", "PADARIA DO ZE 0042"],
+  for description <- ["ADOBE", "Google A0000033333", "PADARIA DO ZE 0042"],
       {:ok, %MerchantIcons.Merchant{icon: icon} = merchant} when is_binary(icon) <-
         [MerchantIcons.resolve(description)] do
     merchant
@@ -90,8 +90,8 @@ Examples of what resolves to what:
 
 | Description               | Result                    |
 |---------------------------|---------------------------|
-| `DL * GOOGLE A0000021232` | `Google`                  |
-| `Google ADS2397919998`    | `Google`                  |
+| `DL * GOOGLE A0000033333` | `Google`                  |
+| `Google A0000033333`    | `Google`                  |
 | `Google One`              | `Google One`              |
 | `Uber UBER * PENDING`     | `Uber`                    |
 | `DL * UberRides`          | `Uber`                    |
