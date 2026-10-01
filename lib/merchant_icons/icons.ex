@@ -48,6 +48,9 @@ defmodule MerchantIcons.Icons do
           | :entity
           | :event_handler
           | :external_reference
+          | :style_attribute
+          | {:disallowed_element, String.t()}
+          | :unbalanced_svg
 
   # Maximum size of an icon file, in bytes. The shipped icons are below 10 KB; the limit only
   # exists so a tampered file cannot inflate the compiled module.
@@ -71,9 +74,37 @@ defmodule MerchantIcons.Icons do
     {"@import", :external_reference}
   ]
 
+  # Elements an icon may contain. This is an allowlist on top of the denylist checks above: any
+  # other element, including HTML elements that break out of the SVG when the markup is inlined
+  # (`<p>`, `<form>`, `<a>`) and animation or styling elements (`<animate>`, `<set>`, `<style>`),
+  # is rejected. Names are case-sensitive, as in SVG. Extend the list only for elements that
+  # cannot load resources, run code or navigate.
+  @allowed_elements MapSet.new(~w(
+    svg g path rect circle ellipse line polyline polygon defs symbol use title desc
+    stop linearGradient radialGradient pattern clipPath mask filter
+    feGaussianBlur feOffset feBlend feColorMatrix feComposite feFlood feMerge feMergeNode
+  ))
+
+  # Longest element name that is read; anything longer cannot be in the allowlist.
+  @max_element_name 40
+
   # An attribute name starting with `on` can only follow whitespace, a quote or a slash.
   # HTML treats form feed as whitespace too.
   @event_attribute_starts [" on", "\ton", "\non", "\ron", "\fon", "\"on", "'on", "/on"]
+
+  # The `style` attribute can only follow whitespace, a quote or a slash. It is rejected outright:
+  # CSS inside it can reference resources in ways the `url(` checks do not see (`image-set(...)`,
+  # `mask-image`), and no icon needs it, since the same presentation is available as attributes.
+  @style_attribute_starts [
+    " style",
+    "\tstyle",
+    "\nstyle",
+    "\rstyle",
+    "\fstyle",
+    "\"style",
+    "'style",
+    "/style"
+  ]
 
   # The only URLs allowed to appear in an SVG: its XML namespaces.
   @namespaces ["http://www.w3.org/2000/svg", "http://www.w3.org/1999/xlink"]
@@ -103,7 +134,7 @@ defmodule MerchantIcons.Icons do
 
   Raises `ArgumentError` when a referenced file is missing or invalid, or when a file in the
   directory is not referenced by any merchant. Messages only mention icon names, ids and reasons,
-  never the content of a file.
+  never the content of a file. The one detail they add is the name of a rejected element.
   """
   @spec embed!([Index.definition()], Path.t()) :: [Index.definition()]
   def embed!(definitions, dir) do
@@ -122,6 +153,7 @@ defmodule MerchantIcons.Icons do
     |> ensure_svg_end()
     |> ensure_view_box()
     |> ensure_no_active_content()
+    |> ensure_allowed_elements()
   end
 
   # embed
@@ -167,9 +199,13 @@ defmodule MerchantIcons.Icons do
   defp validated!(content, where) do
     case validate(content) do
       {:ok, svg} -> svg
-      {:error, reason} -> raise ArgumentError, "#{where} is invalid (#{reason})"
+      {:error, reason} -> raise ArgumentError, "#{where} is invalid (#{describe_reason(reason)})"
     end
   end
+
+  # A rejected element is named so a contributor can see what to change in the file.
+  defp describe_reason({reason, detail}), do: "#{reason}: #{inspect(detail)}"
+  defp describe_reason(reason), do: to_string(reason)
 
   defp reject_unreferenced_files!(definitions, dir) do
     referenced =
@@ -267,6 +303,7 @@ defmodule MerchantIcons.Icons do
     checks = [
       fn _lowered, compact -> forbidden_fragment(compact) end,
       fn lowered, _compact -> event_handler(lowered) end,
+      fn lowered, _compact -> style_attribute(lowered) end,
       fn _lowered, compact -> external_reference(compact) end,
       fn _lowered, compact -> non_local_reference(compact) end
     ]
@@ -274,6 +311,75 @@ defmodule MerchantIcons.Icons do
     case Enum.find_value(checks, & &1.(lowered, compact)) do
       nil -> ok
       reason -> {:error, reason}
+    end
+  end
+
+  # Every `<` must start an allowed element (or its closing tag). The first `<svg` must be
+  # closed by the last tag of the file: anything between roots, after the root, or unbalanced is
+  # rejected. A `<` that does not start an allowed name (`<!--`, `<?`, `<![CDATA[`, `< `) is
+  # rejected too, so the scan never has to guess how a browser would read it.
+  defp ensure_allowed_elements({:error, _} = error), do: error
+
+  defp ensure_allowed_elements({:ok, content} = ok) do
+    tags =
+      for {position, _length} <- :binary.matches(content, "<"),
+          do: tag_at(content, position + 1)
+
+    case check_tags(tags) do
+      nil -> ok
+      reason -> {:error, reason}
+    end
+  end
+
+  defp tag_at(content, start) do
+    window = binary_part(content, start, min(@max_element_name, byte_size(content) - start))
+
+    case window do
+      <<"/", name::binary>> -> {:close, element_name(name)}
+      name -> {:open, element_name(name)}
+    end
+  end
+
+  defp element_name(window) do
+    case :binary.match(window, [" ", "\t", "\n", "\r", "\f", "/", ">"]) do
+      {position, _length} -> binary_part(window, 0, position)
+      :nomatch -> window
+    end
+  end
+
+  # State: svg nesting depth and whether the root has been closed. A rejected element reports
+  # its name (read from a window of @max_element_name bytes, so a file cannot inflate the reason).
+  defp check_tags(tags) do
+    result =
+      Enum.reduce_while(tags, {0, false}, fn {kind, name}, {depth, closed?} ->
+        cond do
+          not MapSet.member?(@allowed_elements, name) ->
+            {:halt, {:error, {:disallowed_element, name}}}
+
+          closed? ->
+            {:halt, {:error, :trailing_content}}
+
+          name != "svg" ->
+            {:cont, {depth, false}}
+
+          kind == :open ->
+            {:cont, {depth + 1, false}}
+
+          depth == 1 ->
+            {:cont, {0, true}}
+
+          depth > 1 ->
+            {:cont, {depth - 1, false}}
+
+          true ->
+            {:halt, {:error, :trailing_content}}
+        end
+      end)
+
+    case result do
+      {:error, reason} -> reason
+      {_depth, true} -> nil
+      {_depth, false} -> :unbalanced_svg
     end
   end
 
@@ -299,6 +405,36 @@ defmodule MerchantIcons.Icons do
     case event_handler?(lowered) do
       true -> :event_handler
       false -> nil
+    end
+  end
+
+  defp style_attribute(lowered) do
+    case style_attribute?(lowered) do
+      true -> :style_attribute
+      false -> nil
+    end
+  end
+
+  defp style_attribute?(lowered) do
+    lowered
+    |> :binary.matches(@style_attribute_starts)
+    |> Enum.any?(&style_assignment_after?(&1, lowered))
+  end
+
+  # `style` has to be the whole attribute name: `styles=` or `style-x=` are not it.
+  defp style_assignment_after?({position, length}, lowered) do
+    rest_start = position + length
+    rest = binary_part(lowered, rest_start, byte_size(lowered) - rest_start)
+
+    case rest do
+      <<"=", _after::binary>> ->
+        true
+
+      <<char, _after::binary>> when char in [?\s, ?\t, ?\n, ?\r, ?\f] ->
+        rest |> String.trim_leading() |> String.starts_with?("=")
+
+      _other ->
+        false
     end
   end
 

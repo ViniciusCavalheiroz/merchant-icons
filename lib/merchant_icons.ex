@@ -40,18 +40,21 @@ defmodule MerchantIcons do
   fallback.
 
   The SVGs ship inside the package and are embedded when the library compiles, so getting an
-  icon never touches the network or the file system. The markup is meant to be inlined in HTML
-  and scaled with CSS (every icon has a `viewBox`). Each file is validated at compile time:
+  icon never touches the network or the file system. Every `viewBox` makes them scalable with
+  CSS. Each file is validated at compile time: only a fixed set of SVG elements is allowed, and
   scripts, event handlers, `foreignObject`, entities and external references are rejected.
 
-  Some icons carry internal ids (gradients, `clipPath`, filters) referenced with `url(#id)`.
-  When the same icon is inlined more than once on a page - a list, or a framework that keeps a
-  server and client copy of the DOM at the same time, like Phoenix LiveView - those ids collide
-  and the `url(#id)` references stop painting. For those cases render the icon as an isolated
-  image instead of inlining it: `icon_data_uri/1` returns a `data:` URI for an `<img>` `src`,
-  which scopes the ids inside the image's own document. In a Phoenix app, prefer the ready-made
-  `MerchantIcons.Components.merchant_icon/1` component, which already renders this way and adds
-  a fallback for merchants without an icon.
+  **Render the icon as an image**, not as inline markup. Use `icon_data_uri/1` as the `src` of
+  an `<img>`, or, in a Phoenix app, the ready-made `MerchantIcons.Components.merchant_icon/1`
+  component, which does this and adds a fallback for merchants without an icon. An `<img>`
+  cannot run scripts or load other resources, and it keeps the internal ids of the SVG isolated.
+  Those ids (gradients, `clipPath`, filters, referenced with `url(#id)`) collide when the same
+  icon is inlined more than once on a page - a list, or LiveView, which keeps a server and a
+  client copy of the DOM - and the references stop painting.
+
+  A `data:` URI in `<img src>` needs `data:` in the `img-src` directive of your
+  Content-Security-Policy when the application sets one (for example
+  `img-src 'self' data:`).
 
   ## Telemetry
 
@@ -115,7 +118,17 @@ defmodule MerchantIcons do
     @external_resource path
   end
 
-  @index Index.build(Icons.embed!(Merchants.all(), @icons_dir))
+  @merchants Icons.embed!(Merchants.all(), @icons_dir)
+
+  @index Index.build(@merchants)
+
+  # Data URIs of the bundled icons, encoded once while the library compiles. The icon is kept
+  # next to its URI so `icon_data_uri/1` only returns the precomputed value for the exact
+  # bundled markup and still encodes a merchant struct built with any other icon.
+  @data_uris for %{id: id, icon: icon} <- @merchants,
+                 is_binary(icon),
+                 into: %{},
+                 do: {id, {icon, "data:image/svg+xml;base64," <> Base.encode64(icon)}}
 
   @doc """
   Resolves a transaction description to a merchant.
@@ -125,7 +138,7 @@ defmodule MerchantIcons do
 
   ## Examples
 
-      iex> {:ok, merchant} = MerchantIcons.resolve("Google ADS2397919998")
+      iex> {:ok, merchant} = MerchantIcons.resolve("Google ADS1234567890")
       iex> {merchant.id, merchant.name}
       {"google", "Google"}
 
@@ -171,6 +184,10 @@ defmodule MerchantIcons do
   internal ids (gradients, `clipPath`, filters) inside the image's own document, so repeated
   icons no longer collide on `url(#id)` references the way inlined markup does.
 
+  The URI of every bundled icon is built when the library compiles, so for a merchant returned by
+  `resolve/1` this is a lookup, not an encoding. The application's Content-Security-Policy needs
+  `data:` in `img-src` when it sets one.
+
   ## Examples
 
       iex> {:ok, merchant} = MerchantIcons.resolve("Google")
@@ -181,8 +198,12 @@ defmodule MerchantIcons do
 
   """
   @spec icon_data_uri(Merchant.t()) :: String.t() | nil
-  def icon_data_uri(%Merchant{icon: icon}) when is_binary(icon),
-    do: "data:image/svg+xml;base64," <> Base.encode64(icon)
+  def icon_data_uri(%Merchant{id: id, icon: icon}) when is_binary(icon) do
+    case @data_uris do
+      %{^id => {^icon, data_uri}} -> data_uri
+      _other -> "data:image/svg+xml;base64," <> Base.encode64(icon)
+    end
+  end
 
   def icon_data_uri(%Merchant{}), do: nil
 

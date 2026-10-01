@@ -53,7 +53,7 @@ Add `merchant_icons` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:merchant_icons, "~> 0.1.0"}
+    {:merchant_icons, "~> 0.2.1"}
   ]
 end
 ```
@@ -109,6 +109,7 @@ import MerchantIcons.Components
 
 ~H"""
 <.merchant_icon name={@transaction.merchant_name} />
+<.merchant_icon merchant={@transaction.merchant} />
 <.merchant_icon name="Some Shop" size={40} class="shadow" />
 <.merchant_icon name="Unknown LTDA" fallback={@store_svg} />
 """
@@ -116,7 +117,7 @@ import MerchantIcons.Components
 
 It renders a self-contained round badge (inline styles, no CSS framework needed; `size`
 defaults to 32px, and `class`/other attributes pass through to the outer element). The icon is
-rendered as an `<img>` with a `data:` URI rather than inlined — see the note below.
+rendered as an `<img>` with a `data:` URI rather than inlined — see [Rendering icons](#rendering-icons).
 
 **Fallback order**, when the description has no bundled icon:
 
@@ -132,17 +133,38 @@ dependency: projects that use the library only as a resolver never pull Phoenix 
 app you already have it, and the component is available. If the module does not appear, make sure
 `:phoenix_live_view` is compiled before `:merchant_icons` (the usual case in a Phoenix project).
 
-### Rendering the markup yourself
+### Resolving once
 
-If you render `merchant.icon` directly instead of using the component, note that it is trusted
-markup that ships with the library, so it can be rendered unescaped with `Phoenix.HTML.raw/1`.
-Never do this with text that came from the description: the description is never part of the
-struct.
+`name` is resolved on every render. In a list, resolve when you load or store the data, keep the
+`%MerchantIcons.Merchant{}` (or at least its `id`) and pass it with `merchant`. No resolve
+happens then:
 
-Some icons carry internal ids (gradients, `clipPath`, filters) referenced with `url(#id)`.
-Inlining the same icon more than once on a page — a list, or LiveView's server/client DOM —
-makes those ids collide and the references stop painting. Render the icon as an image to isolate
-the ids: use the component above, or `MerchantIcons.icon_data_uri/1` as an `<img>` `src`.
+```elixir
+<.merchant_icon merchant={@transaction.merchant} />
+```
+
+When both `name` and `merchant` are given, `merchant` wins. `size` must be a positive integer;
+any other value is ignored and the default of 32 is used.
+
+### Rendering icons
+
+Render icons as images, not as inline markup:
+
+* `MerchantIcons.icon_data_uri/1` returns a `data:image/svg+xml;base64,...` string for the `src`
+  of an `<img>`. The component uses it.
+* An `<img>` cannot run scripts or load other resources, and it keeps the internal ids of each
+  SVG (gradients, `clipPath`, filters referenced with `url(#id)`) inside the image. Inlining the
+  same icon more than once on a page, such as in a list or in LiveView's server and client DOM,
+  makes those ids collide and the references stop painting.
+* **Content-Security-Policy:** if your application sets `img-src`, it must allow `data:`
+  (for example `img-src 'self' data:`), or the icons will not show.
+* Each `data:` URI is part of the HTML you send. The icons are small (the largest bundled one
+  is about 11 KB encoded), but a page with thousands of rows repeats it in every row. Paginate
+  or use LiveView streams for long lists.
+
+Inlining `merchant.icon` yourself is not the recommended path. The bundled files are checked
+when the library compiles, but that check works on the text of the file and is not a
+sanitizer for markup from other sources.
 
 ## Input and output
 
@@ -195,15 +217,25 @@ keys you need.
 
 * Icons live in `priv/icons/*.svg` and are embedded in the library at compile time. Getting an
   icon never touches the network or the file system.
-* The markup is meant to be inlined in HTML and scaled with CSS (every icon has a `viewBox`).
+* Every icon has a `viewBox`, so it scales with CSS. Render it as an `<img>` (see
+  [Rendering icons](#rendering-icons)).
 * Every SVG is validated while the library compiles, and a bad file stops the build. The checks
   are deliberately strict and work on the text of the file (there is no XML parser):
+  * only these elements are allowed: `svg`, `g`, `path`, `rect`, `circle`, `ellipse`, `line`,
+    `polyline`, `polygon`, `defs`, `symbol`, `use`, `title`, `desc`, `stop`, `linearGradient`,
+    `radialGradient`, `pattern`, `clipPath`, `mask`, `filter` and the `fe*` filter primitives
+    `feGaussianBlur`, `feOffset`, `feBlend`, `feColorMatrix`, `feComposite`, `feFlood`,
+    `feMerge` and `feMergeNode`. Any other element is rejected, including HTML elements,
+    `<style>`, `<a>` and animation elements; so are comments, CDATA and processing instructions. A rejected element is named in the
+    build error. The `style` attribute is rejected on every element (use presentation attributes
+    such as `fill` instead);
   * rejected: scripts, event handlers (`on*`), `foreignObject`, `<iframe>`, `<object>`,
     `<embed>`, `<!DOCTYPE>`, entities and any `&`, `javascript:` and `data:` URIs, and `@import`;
   * `href`, `src` and `url(...)` may only point to an `#id` inside the same file, so any other
     reference, such as `http:`, `//host` or a relative path, is rejected;
-  * the file must start with `<svg` (with a `viewBox`), end with `</svg>`, be a regular file (no
-    symlinks) and be at most 100,000 bytes.
+  * the file must start with `<svg` (with a `viewBox`), have a single root that is closed by the
+    last tag of the file (nothing between or after roots), be a regular file (no symlinks) and be
+    at most 100,000 bytes.
 * When `icon` is `nil`, the merchant has no icon yet. Treat it like an unknown icon and choose your
   own fallback.
 
@@ -238,7 +270,7 @@ The library does not use `Logger`.
 * **Tokens:** the text is split at separators and at letter/digit boundaries. CamelCase is not
   split, so `UberRides` is a single token.
 * **Processor prefixes:** leading `dl`, `dm`, `ebn` or `ppro` tokens are ignored (also when
-  repeated), so `DL * GOOGLE A0000021232` is matched as `GOOGLE A 0000021232`. Any other leading
+  repeated), so `DL * GOOGLE A0000000123` is matched as `GOOGLE A 0000000123`. Any other leading
   token (for example `PAYPAL`) is not skipped, and a prefix in the middle of a description is not
   ignored.
 * **Aliases** are token sequences of two kinds:

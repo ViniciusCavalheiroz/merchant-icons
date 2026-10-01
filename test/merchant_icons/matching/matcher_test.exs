@@ -37,7 +37,7 @@ defmodule MerchantIcons.Matching.MatcherTest do
 
   describe ":leading aliases" do
     test "accept anything after the alias" do
-      assert {:ok, %Merchant{id: "google"}} = match("GOOGLE ADS 84150265", production())
+      assert {:ok, %Merchant{id: "google"}} = match("GOOGLE ADS 12345678", production())
       assert {:ok, %Merchant{id: "uber"}} = match("Uber UBER * PENDING", production())
       assert {:ok, %Merchant{id: "adobe"}} = match("ADOBE * ADOBE", production())
     end
@@ -57,15 +57,15 @@ defmodule MerchantIcons.Matching.MatcherTest do
 
   describe "processor prefixes" do
     test "are skipped at the start of the description" do
-      assert {:ok, %Merchant{id: "google"}} = match("DL * GOOGLE A0000021232", production())
+      assert {:ok, %Merchant{id: "google"}} = match("DL * GOOGLE A0000000123", production())
       assert {:ok, %Merchant{id: "uber"}} = match("DL * UberRides", production())
       assert {:ok, %Merchant{id: "adobe"}} = match("PPRO * ADOBE", production())
       assert {:ok, %Merchant{id: "adobe"}} = match("EBN * ADOBE", production())
-      assert {:ok, %Merchant{id: "slack"}} = match("DM * Slack T000AAA0000", production())
+      assert {:ok, %Merchant{id: "slack"}} = match("DM * Slack T0000000000", production())
     end
 
     test "are not skipped when the index declares none" do
-      assert match("DL * GOOGLE A0000021232", without_prefixes()) == {:error, :unknown}
+      assert match("DL * GOOGLE A0000000123", without_prefixes()) == {:error, :unknown}
     end
 
     test "consecutive prefixes are all skipped" do
@@ -79,7 +79,7 @@ defmodule MerchantIcons.Matching.MatcherTest do
 
     test "other leading tokens are not prefixes" do
       assert match("PAYPAL * GITHUB INC", production()) == {:error, :unknown}
-      assert match("XY * GOOGLE A0000021232", production()) == {:error, :unknown}
+      assert match("XY * GOOGLE A0000000123", production()) == {:error, :unknown}
     end
 
     test "a prefix with nothing after it is unknown" do

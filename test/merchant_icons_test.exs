@@ -28,7 +28,7 @@ defmodule MerchantIconsTest do
   describe "resolve/1 success" do
     test "returns the merchant from the dataset" do
       assert {:ok, %Merchant{id: "google", name: "Google"}} =
-               MerchantIcons.resolve("Google ADS2397919998")
+               MerchantIcons.resolve("Google ADS1234567890")
 
       assert {:ok, %Merchant{id: "adobe", name: "Adobe"}} = MerchantIcons.resolve("ADOBE")
     end
@@ -103,7 +103,7 @@ defmodule MerchantIconsTest do
     end
 
     test "leading tokens that are not approved processor prefixes are not skipped" do
-      for description <- ["XY * GOOGLE A0000021232", "PAYPAL * GITHUB INC"] do
+      for description <- ["XY * GOOGLE A0000000123", "PAYPAL * GITHUB INC"] do
         assert {:ok, :unknown} = MerchantIcons.resolve(description)
       end
     end
