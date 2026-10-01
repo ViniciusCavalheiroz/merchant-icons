@@ -1,0 +1,49 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly: a dependency can be retired after the last push.
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Dependencies and SVG validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir and OTP
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.20"
+          otp-version: "28"
+
+      - name: Install dependencies
+        run: mix deps.get --check-locked
+
+      # Fails if mix.lock keeps entries that mix.exs no longer uses.
+      - name: Check for unused locked dependencies
+        run: mix deps.unlock --check-unused
+
+      # Built into Hex: fails when a dependency in mix.lock has been retired by its author.
+      - name: Audit retired dependencies
+        run: mix hex.audit
+
+      # Guards the SVG rules (scripts, handlers, external references, size, links). The tests
+      # also check that every icon shipped in priv/icons passes the validator.
+      - name: SVG and input security tests
+        run: mix test test/merchant_icons/icons_test.exs test/merchant_icons/security_test.exs

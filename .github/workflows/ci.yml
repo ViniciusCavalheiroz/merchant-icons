@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Minimum version declared in mix.exs (`elixir: "~> 1.20"`).
+          - elixir: "1.20.0"
+            otp: "28"
+          # Latest release of the same minor.
+          - elixir: "1.20"
+            otp: "28"
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir and OTP
+        id: beam
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+
+      # The key uses the resolved versions and the lockfile, so a new patch release or a
+      # dependency change never reuses a stale build.
+      - name: Cache deps and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: mix-${{ runner.os }}-otp${{ steps.beam.outputs.otp-version }}-ex${{ steps.beam.outputs.elixir-version }}-${{ hashFiles('mix.lock') }}
+
+      - name: Install dependencies
+        run: mix deps.get --check-locked
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      # --force: with a cached _build, unchanged files are not recompiled and their warnings
+      # would not be reported. Compiling also validates every SVG in priv/icons.
+      - name: Compile without warnings
+        run: mix compile --force --warnings-as-errors
+
+      - name: Run tests
+        run: mix test
