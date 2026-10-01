@@ -1,6 +1,6 @@
 defmodule MerchantIcons.Data.Merchants do
   @moduledoc false
-
+#a
   # The production merchant dataset: plain data, validated at compile time by
   # `MerchantIcons.Matching.Index.build/2`.
   #
