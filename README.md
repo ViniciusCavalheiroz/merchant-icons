@@ -100,40 +100,49 @@ Examples of what resolves to what:
 
 ## Usage in a Phoenix application
 
-`merchant.icon` is trusted markup that ships with the library, so it can be rendered unescaped
-with `Phoenix.HTML.raw/1`. Never do this with text that came from the description: the
-description is never part of the struct.
+The quickest path is the ready-made component. `import MerchantIcons.Components` and call
+`merchant_icon/1` with the raw description. It resolves the merchant, renders the icon and
+handles merchants without one — you deal with none of that:
 
 ```elixir
-defmodule MyAppWeb.MerchantComponents do
-  use Phoenix.Component
+import MerchantIcons.Components
 
-  attr :description, :string, required: true
-
-  def merchant(assigns) do
-    merchant =
-      case MerchantIcons.resolve(assigns.description) do
-        {:ok, %MerchantIcons.Merchant{} = merchant} -> merchant
-        {:ok, :unknown} -> nil
-        {:error, _code, _message} -> nil
-      end
-
-    assigns = assign(assigns, :merchant, merchant)
-
-    ~H"""
-    <span :if={@merchant} class="merchant">
-      <span :if={@merchant.icon} class="merchant-icon">{Phoenix.HTML.raw(@merchant.icon)}</span>
-      {@merchant.name}
-    </span>
-    <%!-- Unknown merchant or error: show the original text, which HEEx escapes. --%>
-    <span :if={!@merchant} class="merchant">{@description}</span>
-    """
-  end
-end
+~H"""
+<.merchant_icon name={@transaction.merchant_name} />
+<.merchant_icon name="Some Shop" size={40} class="shadow" />
+<.merchant_icon name="Unknown LTDA" fallback={@store_svg} />
+"""
 ```
 
-This uses the `{...}` syntax of Phoenix LiveView 1.0 and later. Size the icon with CSS, for
-example `.merchant-icon svg { width: 1.5rem; height: 1.5rem; }`.
+It renders a self-contained round badge (inline styles, no CSS framework needed; `size`
+defaults to 32px, and `class`/other attributes pass through to the outer element). The icon is
+rendered as an `<img>` with a `data:` URI rather than inlined — see the note below.
+
+**Fallback order**, when the description has no bundled icon:
+
+1. the merchant's icon, when the description resolves to one;
+2. the `fallback` SVG markup you pass (validated the same way bundled icons are; invalid markup
+   is ignored);
+3. a badge with the first letter of the merchant/description name.
+
+### Optional dependency
+
+`MerchantIcons.Components` needs `Phoenix.Component`, so `:phoenix_live_view` is an **optional**
+dependency: projects that use the library only as a resolver never pull Phoenix in. In a Phoenix
+app you already have it, and the component is available. If the module does not appear, make sure
+`:phoenix_live_view` is compiled before `:merchant_icons` (the usual case in a Phoenix project).
+
+### Rendering the markup yourself
+
+If you render `merchant.icon` directly instead of using the component, note that it is trusted
+markup that ships with the library, so it can be rendered unescaped with `Phoenix.HTML.raw/1`.
+Never do this with text that came from the description: the description is never part of the
+struct.
+
+Some icons carry internal ids (gradients, `clipPath`, filters) referenced with `url(#id)`.
+Inlining the same icon more than once on a page — a list, or LiveView's server/client DOM —
+makes those ids collide and the references stop painting. Render the icon as an image to isolate
+the ids: use the component above, or `MerchantIcons.icon_data_uri/1` as an `<img>` `src`.
 
 ## Input and output
 

@@ -44,6 +44,15 @@ defmodule MerchantIcons do
   and scaled with CSS (every icon has a `viewBox`). Each file is validated at compile time:
   scripts, event handlers, `foreignObject`, entities and external references are rejected.
 
+  Some icons carry internal ids (gradients, `clipPath`, filters) referenced with `url(#id)`.
+  When the same icon is inlined more than once on a page - a list, or a framework that keeps a
+  server and client copy of the DOM at the same time, like Phoenix LiveView - those ids collide
+  and the `url(#id)` references stop painting. For those cases render the icon as an isolated
+  image instead of inlining it: `icon_data_uri/1` returns a `data:` URI for an `<img>` `src`,
+  which scopes the ids inside the image's own document. In a Phoenix app, prefer the ready-made
+  `MerchantIcons.Components.merchant_icon/1` component, which already renders this way and adds
+  a fallback for merchants without an icon.
+
   ## Telemetry
 
   `resolve/1` emits one `:telemetry` event when it identifies a merchant or concludes that the
@@ -153,6 +162,29 @@ defmodule MerchantIcons do
     |> build_result()
     |> emit_telemetry()
   end
+
+  @doc """
+  Returns the merchant icon as a `data:` URI, or `nil` when the merchant has no icon.
+
+  Use it as the `src` of an `<img>` when the icon is rendered more than once on a page (a list,
+  or a server/client DOM like Phoenix LiveView). Rendering it as an image scopes the icon's
+  internal ids (gradients, `clipPath`, filters) inside the image's own document, so repeated
+  icons no longer collide on `url(#id)` references the way inlined markup does.
+
+  ## Examples
+
+      iex> {:ok, merchant} = MerchantIcons.resolve("Google")
+      iex> "data:image/svg+xml;base64," <> _ = MerchantIcons.icon_data_uri(merchant)
+
+      iex> MerchantIcons.icon_data_uri(%MerchantIcons.Merchant{id: "x", name: "X", icon: nil})
+      nil
+
+  """
+  @spec icon_data_uri(Merchant.t()) :: String.t() | nil
+  def icon_data_uri(%Merchant{icon: icon}) when is_binary(icon),
+    do: "data:image/svg+xml;base64," <> Base.encode64(icon)
+
+  def icon_data_uri(%Merchant{}), do: nil
 
   defp match_merchant({:error, _reason} = error), do: error
   defp match_merchant({:ok, tokens}), do: Matcher.match(tokens, @index)
