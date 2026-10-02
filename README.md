@@ -53,7 +53,7 @@ Add `merchant_icons` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:merchant_icons, "~> 0.2.1"}
+    {:merchant_icons, "~> 0.3.0"}
   ]
 end
 ```
@@ -84,6 +84,24 @@ with_icon =
         [MerchantIcons.resolve(description)] do
     merchant
   end
+```
+
+If you only need the name, `MerchantIcons.display_name/1` returns it directly:
+
+```elixir
+MerchantIcons.display_name("DL * GOOGLE A0000000123")
+#=> "Google"
+
+MerchantIcons.display_name("PADARIA DO ZE 0042")
+#=> nil
+```
+
+It returns `nil` for an unknown merchant and for any invalid input (it never raises). It does
+**not** return the description, not even a cleaned-up version of it, so what to show for an
+unknown merchant is up to your application:
+
+```elixir
+MerchantIcons.display_name(description) || my_fallback_label(description)
 ```
 
 Examples of what resolves to what:
