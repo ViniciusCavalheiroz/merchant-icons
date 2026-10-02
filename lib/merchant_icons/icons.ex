@@ -48,7 +48,6 @@ defmodule MerchantIcons.Icons do
           | :entity
           | :event_handler
           | :external_reference
-          | :style_attribute
           | {:disallowed_element, String.t()}
           | :unbalanced_svg
 
@@ -91,20 +90,6 @@ defmodule MerchantIcons.Icons do
   # An attribute name starting with `on` can only follow whitespace, a quote or a slash.
   # HTML treats form feed as whitespace too.
   @event_attribute_starts [" on", "\ton", "\non", "\ron", "\fon", "\"on", "'on", "/on"]
-
-  # The `style` attribute can only follow whitespace, a quote or a slash. It is rejected outright:
-  # CSS inside it can reference resources in ways the `url(` checks do not see (`image-set(...)`,
-  # `mask-image`), and no icon needs it, since the same presentation is available as attributes.
-  @style_attribute_starts [
-    " style",
-    "\tstyle",
-    "\nstyle",
-    "\rstyle",
-    "\fstyle",
-    "\"style",
-    "'style",
-    "/style"
-  ]
 
   # The only URLs allowed to appear in an SVG: its XML namespaces.
   @namespaces ["http://www.w3.org/2000/svg", "http://www.w3.org/1999/xlink"]
@@ -303,7 +288,6 @@ defmodule MerchantIcons.Icons do
     checks = [
       fn _lowered, compact -> forbidden_fragment(compact) end,
       fn lowered, _compact -> event_handler(lowered) end,
-      fn lowered, _compact -> style_attribute(lowered) end,
       fn _lowered, compact -> external_reference(compact) end,
       fn _lowered, compact -> non_local_reference(compact) end
     ]
@@ -405,36 +389,6 @@ defmodule MerchantIcons.Icons do
     case event_handler?(lowered) do
       true -> :event_handler
       false -> nil
-    end
-  end
-
-  defp style_attribute(lowered) do
-    case style_attribute?(lowered) do
-      true -> :style_attribute
-      false -> nil
-    end
-  end
-
-  defp style_attribute?(lowered) do
-    lowered
-    |> :binary.matches(@style_attribute_starts)
-    |> Enum.any?(&style_assignment_after?(&1, lowered))
-  end
-
-  # `style` has to be the whole attribute name: `styles=` or `style-x=` are not it.
-  defp style_assignment_after?({position, length}, lowered) do
-    rest_start = position + length
-    rest = binary_part(lowered, rest_start, byte_size(lowered) - rest_start)
-
-    case rest do
-      <<"=", _after::binary>> ->
-        true
-
-      <<char, _after::binary>> when char in [?\s, ?\t, ?\n, ?\r, ?\f] ->
-        rest |> String.trim_leading() |> String.starts_with?("=")
-
-      _other ->
-        false
     end
   end
 

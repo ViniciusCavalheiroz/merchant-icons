@@ -227,8 +227,7 @@ keys you need.
     `feGaussianBlur`, `feOffset`, `feBlend`, `feColorMatrix`, `feComposite`, `feFlood`,
     `feMerge` and `feMergeNode`. Any other element is rejected, including HTML elements,
     `<style>`, `<a>` and animation elements; so are comments, CDATA and processing instructions. A rejected element is named in the
-    build error. The `style` attribute is rejected on every element (use presentation attributes
-    such as `fill` instead);
+    build error;
   * rejected: scripts, event handlers (`on*`), `foreignObject`, `<iframe>`, `<object>`,
     `<embed>`, `<!DOCTYPE>`, entities and any `&`, `javascript:` and `data:` URIs, and `@import`;
   * `href`, `src` and `url(...)` may only point to an `#id` inside the same file, so any other
