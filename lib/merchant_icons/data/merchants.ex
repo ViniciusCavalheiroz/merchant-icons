@@ -28,7 +28,7 @@ defmodule MerchantIcons.Data.Merchants do
     %{
       id: "uber",
       name: "Uber",
-      icon: nil,
+      icon: "uber_icon_light",
       aliases: [{"uber", :leading}, {"uberrides", :whole}]
     },
     %{id: "adobe", name: "Adobe", icon: "adobe", aliases: [{"adobe", :leading}]},
@@ -37,56 +37,62 @@ defmodule MerchantIcons.Data.Merchants do
     %{
       id: "amazon",
       name: "Amazon",
-      icon: nil,
+      icon: "amazon_default",
       aliases: [{"amazon", :leading}, {"amazonmktplc", :leading}]
     },
     %{
       id: "aws",
       name: "AWS",
-      icon: nil,
-      aliases: [{"amazon web services", :leading}, {"amazon aws", :leading}]
+      icon: "aws_light",
+      aliases: [{"amazon web services", :leading}, {"amazon aws", :leading}, {"aws", :leading}]
     },
     %{
       id: "apple",
       name: "Apple",
-      icon: nil,
+      icon: "apple",
       aliases: [{"apple", :leading}, {"applecombill", :leading}]
     },
     %{
       id: "cloudflare",
       name: "Cloudflare",
-      icon: nil,
+      icon: "cloudflare",
       aliases: [{"cloudflare", :leading}]
     },
     %{
       id: "facebook",
       name: "Facebook",
-      icon: nil,
+      icon: "facebook",
       aliases: [{"facebk", :leading}, {"facebook", :leading}]
     },
     %{id: "stape", name: "Stape", icon: nil, aliases: [{"stape", :leading}]},
     %{
       id: "twilio",
       name: "Twilio",
-      icon: nil,
+      icon: "twilio",
       aliases: [{"twilio", :leading}, {"sendgrid", :leading}]
     },
     %{
       id: "google_one",
       name: "Google One",
-      icon: nil,
-      aliases: [{"google one", :leading}]
+      icon: "google_one",
+      # `<prefix> * GOOGLE Google One` repeats the word: the tokens are `google google one`.
+      aliases: [{"google one", :leading}, {"google google one", :leading}]
     },
     %{
       id: "databricks",
       name: "Databricks",
-      icon: nil,
+      icon: "databricks",
       aliases: [{"databricks", :leading}]
     },
     %{id: "manychat", name: "ManyChat", icon: nil, aliases: [{"manychat", :leading}]},
-    %{id: "zapsign", name: "ZapSign", icon: nil, aliases: [{"zapsign", :leading}]},
-    %{id: "clickup", name: "ClickUp", icon: nil, aliases: [{"clickup", :leading}]},
-    %{id: "linkedin", name: "LinkedIn", icon: nil, aliases: [{"linkedin", :leading}]},
+    %{
+      id: "zapsign",
+      name: "ZapSign",
+      icon: nil,
+      aliases: [{"zapsign", :leading}, {"pg zapsign", :leading}]
+    },
+    %{id: "clickup", name: "ClickUp", icon: "clickup", aliases: [{"clickup", :leading}]},
+    %{id: "linkedin", name: "LinkedIn", icon: "linkedin", aliases: [{"linkedin", :leading}]},
     %{
       id: "contabo",
       name: "Contabo",
@@ -94,31 +100,40 @@ defmodule MerchantIcons.Data.Merchants do
       aliases: [{"contabo", :leading}, {"www contabo com", :leading}]
     },
     %{id: "kwai", name: "Kwai", icon: nil, aliases: [{"kwai", :leading}]},
-    %{id: "replit", name: "Replit", icon: nil, aliases: [{"replit", :leading}]},
-    %{id: "vercel", name: "Vercel", icon: nil, aliases: [{"vercel", :leading}]},
-    %{id: "manus_ai", name: "Manus AI", icon: nil, aliases: [{"manus ai", :leading}]},
+    %{id: "tiktok", name: "TikTok", icon: "tiktok", aliases: [{"tiktok", :leading}]},
+    %{id: "replit", name: "Replit", icon: "replit", aliases: [{"replit", :leading}]},
+    %{id: "vercel", name: "Vercel", icon: "vercel", aliases: [{"vercel", :leading}]},
+    %{id: "manus_ai", name: "Manus AI", icon: "manus_ai", aliases: [{"manus ai", :leading}]},
     %{
       id: "mercado_livre",
       name: "Mercado Livre",
-      icon: nil,
+      icon: "mercado_libre",
       aliases: [
         {"mercadolivre", :leading},
         {"mercado livre", :leading},
-        {"mercado mercadolivre", :leading}
+        {"mercado mercadolivre", :leading},
+        {"ec mercadolivre", :leading},
+        {"mp mercadolivre", :leading}
       ]
     },
     %{
       id: "anthropic",
       name: "Anthropic",
-      icon: nil,
+      icon: "anthropic",
       aliases: [{"anthropic", :leading}]
     },
-    %{id: "github", name: "GitHub", icon: nil, aliases: [{"github", :leading}]},
+    %{id: "github", name: "GitHub", icon: "github", aliases: [{"github", :leading}]},
     %{
       id: "hostinger",
       name: "Hostinger",
       icon: nil,
-      aliases: [{"hostinger", :leading}]
+      aliases: [
+        {"hostinger", :leading},
+        {"hostingercom", :leading},
+        {"hostingercomb", :leading},
+        {"hostingercombr", :leading},
+        {"www hostinger com", :leading}
+      ]
     },
     %{
       id: "gamifytech",
@@ -126,7 +141,7 @@ defmodule MerchantIcons.Data.Merchants do
       icon: nil,
       aliases: [{"gamifytech", :leading}]
     },
-    %{id: "figma", name: "Figma", icon: nil, aliases: [{"figma", :leading}]},
+    %{id: "figma", name: "Figma", icon: "figma", aliases: [{"figma", :leading}]},
     %{id: "claude", name: "Claude", icon: nil, aliases: [{"claude ai", :leading}]},
     %{
       id: "digitalocean",
@@ -149,7 +164,7 @@ defmodule MerchantIcons.Data.Merchants do
     %{
       id: "atlassian",
       name: "Atlassian",
-      icon: nil,
+      icon: "atlassian",
       aliases: [{"atlassian", :leading}]
     },
     %{
@@ -176,15 +191,20 @@ defmodule MerchantIcons.Data.Merchants do
     %{
       id: "mongodb",
       name: "MongoDB",
-      icon: nil,
+      icon: "mongodb",
       aliases: [{"mongodb", :leading}, {"mongodbcloud", :leading}]
     },
-    %{id: "slack", name: "Slack", icon: nil, aliases: [{"slack", :leading}]},
+    %{id: "slack", name: "Slack", icon: "slack", aliases: [{"slack", :leading}]},
     %{
       id: "octuz_ai",
       name: "Octuz AI",
       icon: nil,
-      aliases: [{"octuz ai", :leading}, {"ckt octuz ai", :leading}]
+      aliases: [
+        {"octuz ai", :leading},
+        {"ckt octuz ai", :leading},
+        {"ckt creditos octuz", :leading},
+        {"cakto pay lt octuz ai", :leading}
+      ]
     },
     %{
       id: "1password",
@@ -193,7 +213,16 @@ defmodule MerchantIcons.Data.Merchants do
       aliases: [{"1password", :leading}]
     },
     %{id: "openvpn", name: "OpenVPN", icon: nil, aliases: [{"openvpn", :leading}]},
-    %{id: "paddle", name: "Paddle", icon: nil, aliases: [{"paddle", :leading}]},
+    %{
+      id: "paddle",
+      name: "Paddle",
+      icon: nil,
+      aliases: [
+        {"paddle", :whole},
+        {"paddle net", :whole},
+        {"paddle net paddle net", :whole}
+      ]
+    },
     %{
       id: "mailgun",
       name: "Mailgun",
@@ -219,7 +248,7 @@ defmodule MerchantIcons.Data.Merchants do
       icon: nil,
       aliases: [{"artlist", :leading}, {"www artlist io", :leading}]
     },
-    %{id: "notion", name: "Notion", icon: nil, aliases: [{"notion", :leading}]},
+    %{id: "notion", name: "Notion", icon: "notion", aliases: [{"notion", :leading}]},
     %{id: "aiven", name: "Aiven", icon: nil, aliases: [{"aiven", :leading}]},
     %{
       id: "hootsuite",
@@ -230,7 +259,7 @@ defmodule MerchantIcons.Data.Merchants do
     %{
       id: "cursor",
       name: "Cursor",
-      icon: nil,
+      icon: "cursor",
       aliases: [{"cursor ai", :leading}, {"cursor", :whole}]
     },
     %{
@@ -267,7 +296,7 @@ defmodule MerchantIcons.Data.Merchants do
       id: "clicksign",
       name: "Clicksign",
       icon: nil,
-      aliases: [{"clicksign", :leading}]
+      aliases: [{"clicksign", :leading}, {"vindi clicksigngesta", :leading}]
     },
     %{id: "zendesk", name: "Zendesk", icon: nil, aliases: [{"zendesk", :leading}]},
     %{
@@ -328,7 +357,12 @@ defmodule MerchantIcons.Data.Merchants do
       icon: nil,
       aliases: [{"socialblade", :leading}, {"social blade", :leading}]
     },
-    %{id: "freepik", name: "Freepik", icon: nil, aliases: [{"freepik", :leading}]},
+    %{
+      id: "freepik",
+      name: "Freepik",
+      icon: nil,
+      aliases: [{"freepik", :leading}, {"fc freepik", :leading}, {"mgf freepik", :leading}]
+    },
     %{id: "capcut", name: "CapCut", icon: nil, aliases: [{"capcut", :leading}]},
     %{
       id: "contabilizei",
@@ -353,13 +387,18 @@ defmodule MerchantIcons.Data.Merchants do
       icon: nil,
       aliases: [{"crypto com", :leading}]
     },
-    %{id: "airbnb", name: "Airbnb", icon: nil, aliases: [{"airbnb", :leading}]},
+    %{id: "airbnb", name: "Airbnb", icon: "airbnb", aliases: [{"airbnb", :leading}]},
     %{id: "metabase", name: "Metabase", icon: nil, aliases: [{"metabase", :leading}]},
     %{id: "mega", name: "Mega", icon: nil, aliases: [{"mega limited", :leading}]},
     %{id: "fly_io", name: "Fly.io", icon: nil, aliases: [{"fly io", :leading}]},
     %{id: "synology", name: "Synology", icon: nil, aliases: [{"synology", :leading}]},
-    %{id: "heroku", name: "Heroku", icon: nil, aliases: [{"heroku", :leading}]},
-    %{id: "lovable", name: "Lovable", icon: nil, aliases: [{"lovable", :leading}]},
+    %{
+      id: "heroku",
+      name: "Heroku",
+      icon: nil,
+      aliases: [{"heroku", :leading}, {"www herokucharge com", :leading}]
+    },
+    %{id: "lovable", name: "Lovable", icon: "lovable", aliases: [{"lovable", :leading}]},
     %{id: "postman", name: "Postman", icon: nil, aliases: [{"postman", :leading}]},
     %{
       id: "runninghub",

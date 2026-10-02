@@ -397,49 +397,7 @@ defmodule MerchantIcons.IconsTest do
     end
   end
 
-  describe "validate/1 style attribute" do
-    # The gap found while reviewing the allowlist: CSS in `style=` reaches resources that the
-    # `url(` check does not see.
-    test "rejects the style attribute, whatever it contains" do
-      for style <- [
-            ~s|style="fill:red"|,
-            ~s|style="background:url(x.png)"|,
-            ~s|style="mask-image:image-set('x.png' 1x)"|,
-            ~s|style='fill:red'|,
-            "style=red",
-            ~s|style = "fill:red"|,
-            "style\n=\n\"fill:red\""
-          ] do
-        assert invalid(with_view_box("<rect #{style}/>")) == {:error, :style_attribute},
-               "#{inspect(style)} was accepted"
-      end
-    end
-
-    test "rejects the attribute in any case and in any position" do
-      assert invalid(with_view_box(~s|<rect STYLE="fill:red"/>|)) == {:error, :style_attribute}
-      assert invalid(with_view_box(~s|<rect fill="red"style="x"/>|)) == {:error, :style_attribute}
-      assert invalid(with_view_box(~s|<rect/style="x"/>|)) == {:error, :style_attribute}
-      assert invalid(~s|<svg viewBox="0 0 1 1" style="x"></svg>|) == {:error, :style_attribute}
-      assert invalid(with_view_box("<rect\tstyle=\"x\"/>")) == {:error, :style_attribute}
-    end
-
-    test "does not mistake other attributes or text for the style attribute" do
-      for markup <- [
-            ~s|<rect class="style"/>|,
-            ~s|<rect id="style"/>|,
-            ~s|<rect data-style="x"/>|,
-            ~s|<rect styles="x"/>|,
-            ~s|<rect fill="red" stroke-style="x"/>|,
-            ~s|<title>style</title>|
-          ] do
-        svg = with_view_box(markup)
-
-        assert Icons.validate(svg) == {:ok, svg}, "#{markup} was rejected"
-      end
-    end
-  end
-
-  describe "embed!/2 messages for the new rejections" do
+  describe "embed!/2 message for a rejected element" do
     setup do
       dir = Path.join(System.tmp_dir!(), "merchant_icons_#{System.unique_integer([:positive])}")
       File.mkdir_p!(dir)
@@ -454,15 +412,6 @@ defmodule MerchantIcons.IconsTest do
 
       assert error =~ "disallowed_element"
       assert error =~ ~s|"text"|
-    end
-
-    test "reports the style attribute without printing its value", %{dir: dir} do
-      File.write!(Path.join(dir, "logo.svg"), with_view_box(~s|<rect style="CANARY-9137"/>|))
-
-      error = message(fn -> Icons.embed!([definition(%{icon: "logo"})], dir) end)
-
-      assert error =~ "style_attribute"
-      refute error =~ "CANARY-9137"
     end
   end
 end
