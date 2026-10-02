@@ -53,7 +53,7 @@ Add `merchant_icons` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:merchant_icons, "~> 0.3.0"}
+    {:merchant_icons, "~> 0.3.1"}
   ]
 end
 ```
@@ -136,6 +136,13 @@ import MerchantIcons.Components
 It renders a self-contained round badge (inline styles, no CSS framework needed; `size`
 defaults to 32px, and `class`/other attributes pass through to the outer element). The icon is
 rendered as an `<img>` with a `data:` URI rather than inlined — see [Rendering icons](#rendering-icons).
+
+The initial badge takes its background from a built-in palette, always the same color for the same
+name. Pass `color` to use your own (`color="#0F766E"`, `color="teal"`, `color="rgb(15 118 110)"` or
+`color="var(--brand)"`). Only safe color shapes are accepted; anything else is ignored and the
+palette is used, so a value that came from a user can not add other CSS to the element. The
+initial is always white, so choose a color dark enough for it. A merchant that has an icon has no
+colored background, so `color` does not apply to it.
 
 **Fallback order**, when the description has no bundled icon:
 

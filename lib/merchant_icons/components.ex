@@ -29,6 +29,22 @@ if Code.ensure_loaded?(Phoenix.Component) do
     `size` must be a positive integer (pixels). Anything else is ignored and the default of 32 is
     used, so a bad value never crashes the render.
 
+    ## Color
+
+    The badge shown when there is no icon (the initial of the name) takes its background color
+    from a built-in palette, chosen from the name so the same name always gets the same color.
+    Pass `color` to use your own:
+
+        <.merchant_icon name="Some Shop" color="#0F766E" />
+        <.merchant_icon name="Some Shop" color="rebeccapurple" />
+        <.merchant_icon name="Some Shop" color="var(--brand)" />
+
+    `color` accepts a hex color (`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`), a color name
+    (`"teal"`), `rgb()`, `rgba()`, `hsl()` or `hsla()`, and `var(--name)`. Anything else is ignored
+    and the palette is used, so a value that came from a user can not add other CSS declarations
+    to the element. The initial is always white; pick a color dark enough for it. A merchant that
+    has an icon is not drawn on a colored background, so `color` has no effect on it.
+
     ## Examples
 
         <.merchant_icon name={@transaction.merchant_name} />
@@ -62,6 +78,12 @@ if Code.ensure_loaded?(Phoenix.Component) do
       doc: "SVG markup to render when the merchant has no bundled icon"
     )
 
+    attr(:color, :string,
+      default: nil,
+      doc:
+        "background color of the initial badge; defaults to a palette color chosen from the name"
+    )
+
     attr(:size, :integer,
       default: @default_size,
       doc: "badge size in pixels (positive integer, otherwise #{@default_size})"
@@ -83,7 +105,7 @@ if Code.ensure_loaded?(Phoenix.Component) do
         |> assign(:src, src)
         |> assign(:alt, assigns.alt || name)
         |> assign(:initial, initial(name))
-        |> assign(:outer_style, outer_style(size, src, name))
+        |> assign(:outer_style, outer_style(size, src, assigns.color, name))
         |> assign(
           :image_style,
           "width:#{round(size * 0.72)}px;height:#{round(size * 0.72)}px;object-fit:contain;"
@@ -140,14 +162,92 @@ if Code.ensure_loaded?(Phoenix.Component) do
       end
     end
 
-    defp outer_style(size, src, name) do
+    defp outer_style(size, src, color, name) do
       base =
         "display:inline-flex;align-items:center;justify-content:center;" <>
           "width:#{size}px;height:#{size}px;border-radius:9999px;overflow:hidden;"
 
-      if is_nil(src), do: base <> "background-color:#{bg_color(name)};", else: base
+      if is_nil(src), do: base <> "background-color:#{background_color(color, name)};", else: base
     end
 
-    defp bg_color(name), do: Enum.at(@palette, :erlang.phash2(name, length(@palette)))
+    # The caller's color when it has a safe shape, otherwise the palette color for the name.
+    defp background_color(color, name) do
+      case safe_color(color) do
+        {:ok, color} -> color
+        :error -> Enum.at(@palette, :erlang.phash2(name, length(@palette)))
+      end
+    end
+
+    # The value ends up inside a `style` attribute, so only shapes that cannot carry another CSS
+    # declaration are accepted: no `;`, `:`, quotes or unrelated parentheses.
+    defp safe_color(color) when is_binary(color) and byte_size(color) <= 100 do
+      color = String.trim(color)
+
+      if hex_color?(color) or named_color?(color) or functional_color?(color) or
+           css_variable?(color),
+         do: {:ok, color},
+         else: :error
+    end
+
+    defp safe_color(_color), do: :error
+
+    # `#rgb`, `#rgba`, `#rrggbb` and `#rrggbbaa`.
+    defp hex_color?("#" <> digits),
+      do: byte_size(digits) in [3, 4, 6, 8] and all_bytes?(digits, &hex_digit?/1)
+
+    defp hex_color?(_color), do: false
+
+    # `teal`, `rebeccapurple`, `transparent`: letters only.
+    defp named_color?(name), do: byte_size(name) in 3..24 and all_bytes?(name, &letter?/1)
+
+    # `rgb(...)`, `rgba(...)`, `hsl(...)` and `hsla(...)`. The arguments may hold numbers, units,
+    # `%`, spaces, commas, `/`, `.` and `-`; there is no room for a nested function or a `;`.
+    defp functional_color?(color) do
+      case String.downcase(color) do
+        "rgb(" <> _rest -> arguments?(color, 4)
+        "rgba(" <> _rest -> arguments?(color, 5)
+        "hsl(" <> _rest -> arguments?(color, 4)
+        "hsla(" <> _rest -> arguments?(color, 5)
+        _other -> false
+      end
+    end
+
+    defp arguments?(color, prefix_size) do
+      rest = binary_part(color, prefix_size, byte_size(color) - prefix_size)
+
+      case String.ends_with?(rest, ")") do
+        true ->
+          inner = binary_part(rest, 0, byte_size(rest) - 1)
+          byte_size(inner) in 1..60 and all_bytes?(inner, &argument_byte?/1)
+
+        false ->
+          false
+      end
+    end
+
+    # `var(--brand)`: a custom property name and nothing else.
+    defp css_variable?("var(--" <> rest) do
+      case String.ends_with?(rest, ")") do
+        true ->
+          name = binary_part(rest, 0, byte_size(rest) - 1)
+          byte_size(name) in 1..48 and all_bytes?(name, &name_byte?/1)
+
+        false ->
+          false
+      end
+    end
+
+    defp css_variable?(_color), do: false
+
+    # Bytes outside ASCII never satisfy these, so non-ASCII text is rejected.
+    defp all_bytes?(binary, fun), do: binary |> :binary.bin_to_list() |> Enum.all?(fun)
+
+    defp hex_digit?(byte), do: byte in ?0..?9 or byte in ?a..?f or byte in ?A..?F
+    defp letter?(byte), do: byte in ?a..?z or byte in ?A..?Z
+    defp digit?(byte), do: byte in ?0..?9
+    defp name_byte?(byte), do: letter?(byte) or digit?(byte) or byte in [?_, ?-]
+
+    defp argument_byte?(byte),
+      do: letter?(byte) or digit?(byte) or byte in [?., ?%, ?\s, ?,, ?/, ?-]
   end
 end
