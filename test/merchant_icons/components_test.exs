@@ -114,4 +114,150 @@ defmodule MerchantIcons.ComponentsTest do
       end
     end
   end
+
+  describe "color" do
+    @palette ~w(#0F766E #1D4ED8 #B91C1C #A21CAF #C2410C #047857 #4338CA #BE123C)
+
+    defp background_of(assigns), do: assigns |> render_icon() |> background()
+
+    defp background(html) do
+      case Regex.run(~r/background-color:([^;"]+);/, html) do
+        [_whole, color] -> color
+        nil -> nil
+      end
+    end
+
+    test "defaults to a palette color, the same one for the same name" do
+      first = render_icon(name: "Padaria do Ze") |> background()
+      again = render_icon(name: "Padaria do Ze") |> background()
+
+      assert first in @palette
+      assert first == again
+    end
+
+    test "different names can get different palette colors, and all stay in the palette" do
+      colors =
+        for name <- [
+              "Alpha Shop",
+              "Beta Shop",
+              "Gamma Shop",
+              "Delta Shop",
+              "Epsilon Shop",
+              "Zeta"
+            ] do
+          render_icon(name: name) |> background()
+        end
+
+      assert Enum.all?(colors, &(&1 in @palette))
+      assert length(Enum.uniq(colors)) > 1
+    end
+
+    test "uses the color the caller sends" do
+      for color <- [
+            "#0F766E",
+            "#abc",
+            "#abcd",
+            "#11223344",
+            "teal",
+            "rebeccapurple",
+            "rgb(10, 20, 30)",
+            "rgba(10 20 30 / 50%)",
+            "hsl(210, 50%, 40%)",
+            "hsla(210deg 50% 40% / 0.5)",
+            "var(--brand)",
+            "RGB(10, 20, 30)",
+            "  #0F766E  "
+          ] do
+        assert render_icon(name: "Padaria do Ze", color: color) |> background() ==
+                 String.trim(color),
+               "#{inspect(color)} was not used"
+      end
+    end
+
+    test "a custom color replaces the palette for every name" do
+      for name <- ["Alpha Shop", "Beta Shop", "Gamma Shop"] do
+        assert render_icon(name: name, color: "#123456") |> background() == "#123456"
+      end
+    end
+
+    test "works with merchant= and with a merchant that has no icon" do
+      merchant = %MerchantIcons.Merchant{id: "shop", name: "Shop", icon: nil}
+
+      assert render_icon(merchant: merchant, color: "navy") |> background() == "navy"
+      assert background_of(merchant: merchant) in @palette
+    end
+
+    test "values that could add CSS or markup are ignored and the palette is used" do
+      for color <- [
+            "red;position:fixed",
+            "red; background-image:url(https://example.test/x)",
+            "url(https://example.test/x)",
+            "#12",
+            "#12345",
+            "#gggggg",
+            "re",
+            "red blue",
+            "rgb(1,2,3);color:red",
+            "rgb(1,2,3) url(x)",
+            "rgb(url(x))",
+            "var(--x);y:z",
+            "var(--x;y:z)",
+            "var(--x y)",
+            "var(--x'y)",
+            "var(--)",
+            "var(--x,fallback)",
+            "rgb(1;2;3)",
+            "rgb((1,2,3)",
+            "rgb(1,2,3",
+            "rgb()",
+            "rgb(1:2)",
+            "hsl(1\"2)",
+            "rgb(\u00e9,2,3)",
+            "#\u00e9\u00e9\u00e9",
+            "var(--x) var(--y)",
+            "var(x)",
+            "expression(alert(1))",
+            "\"onmouseover=\"x",
+            "red\"><script>",
+            "red'}",
+            "calc(1px)",
+            "",
+            "   "
+          ] do
+        html = render_icon(name: "Padaria do Ze", color: color)
+
+        assert background(html) in @palette, "#{inspect(color)} was not ignored"
+        refute html =~ "position:fixed"
+        refute html =~ "example.test"
+        refute html =~ "<script"
+        refute html =~ "onmouseover"
+      end
+    end
+
+    test "values that are not strings are ignored" do
+      for color <- [nil, 123, :red, ["red"], %{color: "red"}] do
+        assert background_of(name: "Padaria do Ze", color: color) in @palette,
+               "#{inspect(color)} was not ignored"
+      end
+    end
+
+    test "a merchant with an icon has no colored background, so color changes nothing" do
+      html = render_icon(name: "Google", color: "#123456")
+
+      assert html =~ "<img"
+      refute html =~ "background-color"
+      refute html =~ "#123456"
+    end
+
+    test "a fallback svg that is used also leaves the color out" do
+      html = render_icon(name: "Padaria do Ze", fallback: @valid_fallback, color: "#123456")
+
+      assert html =~ "<img"
+      refute html =~ "#123456"
+    end
+
+    test "the initial stays white whatever the background" do
+      assert render_icon(name: "Padaria do Ze", color: "#FFFFFF") =~ "color:#fff"
+    end
+  end
 end
