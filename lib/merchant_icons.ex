@@ -33,6 +33,12 @@ defmodule MerchantIcons do
   The set of codes is open: new codes may be added in minor versions, so keep a clause that
   matches any `{:error, _code, _message}`.
 
+  ## Display name
+
+  `display_name/1` is a shortcut for the name only: it returns the merchant name (`"Google"`),
+  or `nil` for an unknown merchant or an invalid description. Like `resolve/1`, it never returns
+  the description, so the text to show for an unknown merchant is the caller's to choose.
+
   ## Icons
 
   `merchant.icon` holds the complete SVG markup of the merchant logo, or `nil` when the
@@ -174,6 +180,37 @@ defmodule MerchantIcons do
     |> match_merchant()
     |> build_result()
     |> emit_telemetry()
+  end
+
+  @doc """
+  Returns the display name of the merchant a description resolves to, or `nil`.
+
+  It resolves the description with `resolve/1` and returns the `name` of the merchant, for
+  example `"Google"`. Anything else returns `nil`: a description that matches no merchant
+  (`{:ok, :unknown}`), an ambiguous one, and any invalid term. It accepts any term and never
+  raises.
+
+  The description is never returned, not even in a cleaned-up form. When this returns `nil`,
+  choosing what to show for the unknown merchant is up to the caller.
+
+  ## Examples
+
+      iex> MerchantIcons.display_name("DL * GOOGLE A0000000123")
+      "Google"
+
+      iex> MerchantIcons.display_name("PADARIA DO ZE 0042")
+      nil
+
+      iex> MerchantIcons.display_name(nil)
+      nil
+
+  """
+  @spec display_name(term()) :: String.t() | nil
+  def display_name(description) do
+    case resolve(description) do
+      {:ok, %Merchant{name: name}} -> name
+      _unknown_or_error -> nil
+    end
   end
 
   @doc """

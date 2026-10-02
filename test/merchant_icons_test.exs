@@ -25,6 +25,46 @@ defmodule MerchantIconsTest do
     end
   end
 
+  describe "display_name/1" do
+    test "returns the merchant name for a known merchant" do
+      assert MerchantIcons.display_name("DL * GOOGLE A0000000123") == "Google"
+    end
+
+    test "returns the name from the dataset, not a form of the description" do
+      assert MerchantIcons.display_name("ADOBE 12345") == "Adobe"
+    end
+
+    test "returns nil for an unknown merchant" do
+      assert MerchantIcons.display_name("PADARIA DO ZE 0042") == nil
+    end
+
+    test "returns nil for a blank description" do
+      assert MerchantIcons.display_name("   ") == nil
+    end
+
+    test "returns nil for a description that is too large" do
+      assert MerchantIcons.display_name(String.duplicate("a", 2000)) == nil
+    end
+
+    test "returns nil for invalid UTF-8" do
+      assert MerchantIcons.display_name(<<0xFF, 0xFE>>) == nil
+    end
+
+    test "returns nil for a term that is not a binary and does not raise" do
+      assert MerchantIcons.display_name(nil) == nil
+      assert MerchantIcons.display_name(:google) == nil
+      assert MerchantIcons.display_name(123) == nil
+      assert MerchantIcons.display_name(["Google"]) == nil
+    end
+
+    test "never returns the description" do
+      description = "PADARIA DO ZE 0042"
+
+      assert MerchantIcons.display_name(description) == nil
+      refute MerchantIcons.display_name(description) == description
+    end
+  end
+
   describe "resolve/1 success" do
     test "returns the merchant from the dataset" do
       assert {:ok, %Merchant{id: "google", name: "Google"}} =
