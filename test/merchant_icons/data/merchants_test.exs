@@ -46,6 +46,9 @@ defmodule MerchantIcons.Data.MerchantsTest do
              {"fingerprint", "fingerprint"},
              {"gather", "gather"},
              {"miro", "miro"},
+             {"paddle", "paddle"},
+             {"paddle", "paddle net"},
+             {"paddle", "paddle net paddle net"},
              {"readme", "readme"},
              {"sentry", "sentry"},
              {"uber", "uberrides"},
@@ -71,8 +74,8 @@ defmodule MerchantIcons.Data.MerchantsTest do
     end
   end
 
-  test "processor prefixes dl, dm, ebn and ppro are skipped at the start" do
-    for prefix <- ["dl", "DM", "Ebn", "PPRO"] do
+  test "processor prefixes dl, dm, ebn, ppro, dlocal and ebanx are skipped at the start" do
+    for prefix <- ["dl", "DM", "Ebn", "PPRO", "DLOCAL", "Ebanx"] do
       assert resolved_id("#{prefix} * Google") == "google"
     end
   end
@@ -93,7 +96,8 @@ defmodule MerchantIcons.Data.MerchantsTest do
   test "a longer alias wins over a shorter one" do
     assert resolved_id("Google One") == "google_one"
     assert resolved_id("Google ADS 123") == "google"
-    assert resolved_id("DL * Google Google One") == "google"
+    assert resolved_id("DL * Google Google One") == "google_one"
+    assert resolved_id("DL * Google Google") == "google"
   end
 
   test "FACEBK and FACEBOOK are the same merchant" do

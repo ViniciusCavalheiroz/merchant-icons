@@ -102,13 +102,13 @@ defmodule MerchantIcons.IconVariationsTest do
   # Descriptions that carry "aws" inside a code or at another position, where it must not take
   # over. Matching is anchored at the start of the description: the first token decides.
   @facebook [
-    "FACEBK * QXH8G5AWS4",
+    "FACEBK * QX0ZZ1AWS4",
     "FACEBK * AWS4",
     "FACEBK * AWS",
-    "FACEBK *QXH8G5AWS4",
-    "facebk * qxh8g5aws4",
+    "FACEBK *QX0ZZ1AWS4",
+    "facebk * qx0zz1aws4",
     "Facebook AWS Ads",
-    "DL * FACEBK * QXH8G5AWS4"
+    "DL * FACEBK * QX0ZZ1AWS4"
   ]
 
   @unknown [
@@ -249,7 +249,7 @@ defmodule MerchantIcons.IconVariationsTest do
 
     test "Facebook, including when aws is part of its code" do
       assert rendered_svg("FACEBK * XX00YY00ZZ") == svg("facebook")
-      assert rendered_svg("FACEBK * QXH8G5AWS4") == svg("facebook")
+      assert rendered_svg("FACEBK * QX0ZZ1AWS4") == svg("facebook")
     end
 
     test "a merchant that still has no icon shows its initial" do

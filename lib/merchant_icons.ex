@@ -86,8 +86,8 @@ defmodule MerchantIcons do
 
   Descriptions are normalized (Unicode NFKD, accents removed, case folded, zero-width characters
   removed) and split into tokens at separators and at letter/digit boundaries. CamelCase is not
-  split. A processor prefix (`dl`, `dm`, `ebn` or `ppro`) at the start of the description is
-  ignored. Aliases are token sequences and come in two kinds:
+  split. A processor prefix (`dl`, `dm`, `ebn`, `ppro`, `dlocal` or `ebanx`) at the start of the
+  description is ignored. Aliases are token sequences and come in two kinds:
 
     * `:whole` - the alias must account for the whole description. Only digits-only tokens
       may follow it.

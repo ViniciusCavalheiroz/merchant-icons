@@ -286,8 +286,8 @@ The library does not use `Logger`.
 * **Normalization:** Unicode NFKD, accents removed, case folded, zero-width characters removed.
 * **Tokens:** the text is split at separators and at letter/digit boundaries. CamelCase is not
   split, so `UberRides` is a single token.
-* **Processor prefixes:** leading `dl`, `dm`, `ebn` or `ppro` tokens are ignored (also when
-  repeated), so `DL * GOOGLE A0000000123` is matched as `GOOGLE A 0000000123`. Any other leading
+* **Processor prefixes:** leading `dl`, `dm`, `ebn`, `ppro`, `dlocal` or `ebanx` tokens are ignored
+  (also when repeated), so `DL * GOOGLE A0000000123` is matched as `GOOGLE A 0000000123`. Any other leading
   token (for example `PAYPAL`) is not skipped, and a prefix in the middle of a description is not
   ignored.
 * **Aliases** are token sequences of two kinds:
@@ -309,15 +309,19 @@ Matching is deterministic and there is **no substring matching**.
 
 ## Limitations
 
-* **Small dataset:** it currently contains 109 merchants, and only nine of them have an icon
-  (Google, Adobe, OpenAI, Spotify, OpenRouter, Uber, Amazon, AWS and Facebook). The others return
-  `icon: nil`.
+* **Small dataset:** it currently contains 110 merchants, and 30 of them have an icon (the
+  SVGs in `priv/icons`). The others return `icon: nil`.
 * **Unknown merchants:** anything outside the dataset returns `{:ok, :unknown}`. Merchants are
   added to the library itself; there is no API for custom merchants or aliases yet.
 * **Conservative matching:** because there is no substring matching, a name glued to a code (for
   example `GOOGLEADS 123`) or in the middle of a description (`MY GOOGLE`) is not matched. This
   avoids false positives at the cost of some false negatives.
-* **Few processor prefixes:** only `dl`, `dm`, `ebn` and `ppro` are skipped.
+* **Few processor prefixes:** only `dl`, `dm`, `ebn`, `ppro`, `dlocal` and `ebanx` are skipped.
+  A processor that is not on the list (`PAYPAL`, `PG`, `EC`, `MP`...) hides the merchant unless the
+  dataset has an alias that spells the processor out, such as `pg zapsign`.
+* **Payment processors that are also merchants:** a description such as `PADDLE.NET * <vendor>`
+  belongs to the vendor, not to the processor, so it is unknown unless the vendor is in the
+  dataset. Only the processor's own charge (`PADDLE.NET * PADDLE.NET`) resolves to Paddle.
 * **Homoglyphs and non-Latin text:** Cyrillic or other look-alike letters are not mapped to Latin,
   and non-Latin descriptions are preserved as content and will usually be unknown.
 * **Input limit:** 1024 bytes, provisional.

@@ -13,7 +13,10 @@ defmodule MerchantIcons.Matching.Noise do
   # Digits-only tokens are structural noise (no vocabulary involved): after a `:whole` alias
   # they are ignored by the matcher.
 
-  @prefixes ["dl", "dm", "ebn", "ppro"]
+  # `dlocal` and `ebanx` are the long spellings of `dl` and `ebn`: `DLOCAL * GOOGLE ...` is the
+  # same descriptor as `DL * GOOGLE ...`. Skipping them leaves the processor on its own as an
+  # unknown description.
+  @prefixes ["dl", "dm", "ebn", "ppro", "dlocal", "ebanx"]
 
   @doc "Processor prefix tokens recognised at the start of a description (production)."
   @spec prefixes() :: [String.t()]
