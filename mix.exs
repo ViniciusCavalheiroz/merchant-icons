@@ -1,7 +1,7 @@
 defmodule MerchantIcons.MixProject do
   use Mix.Project
 
-  @version "0.3.1"
+  @version "0.4.0"
   @source_url "https://github.com/ViniciusCavalheiroz/merchant-icons"
 
   def project do
@@ -65,9 +65,9 @@ defmodule MerchantIcons.MixProject do
       # Optional: only needed by MerchantIcons.Components. Consumers that use the
       # lib purely as a resolver do not pull Phoenix in. Available in this lib's
       # own build and tests so the component compiles and is tested here.
-      {:phoenix_live_view, "~> 1.0", optional: true},
-      {:ex_doc, "~> 0.38", only: :dev, runtime: false},
-      {:benchee, "~> 1.3", only: :dev, runtime: false}
+      {:phoenix_live_view, "~> 1.1 and >= 1.1.28", optional: true},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
+      {:benchee, "~> 1.5", only: :dev, runtime: false}
     ]
   end
 end
