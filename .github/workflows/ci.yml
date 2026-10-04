@@ -23,7 +23,7 @@ jobs:
       matrix:
         include:
           # Minimum version declared in mix.exs (~> 1.19).
-          - elixir: "1.19.0"
+          - elixir: "1.20.0"
             otp: "28"
 
           # Latest release of the newest minor.
