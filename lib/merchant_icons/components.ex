@@ -14,8 +14,17 @@ if Code.ensure_loaded?(Phoenix.Component) do
     ## Fallback order
 
       1. the merchant's bundled icon, when the description resolves to one;
-      2. the `fallback` SVG markup given by the caller, when it is valid;
+      2. the `fallback` SVG markup given by the caller, when it passes validation (a defensive
+         layer, see below);
       3. a badge with the first letter of the merchant/description name.
+
+    ## Fallback SVG
+
+    The `fallback` markup is checked with the same strict, text-based rules as the bundled icons
+    and, when it passes, is rendered only through an `<img>` (as a `data:` URI). Invalid markup is
+    ignored. The check is a defensive layer, not a general SVG sanitizer, and the supported way to
+    render a fallback is this component. Do not pass untrusted SVG to `Phoenix.HTML.raw/1` or
+    inline it in the page.
 
     ## Resolving once
 
@@ -26,8 +35,8 @@ if Code.ensure_loaded?(Phoenix.Component) do
 
     ## Size
 
-    `size` must be a positive integer (pixels). Anything else is ignored and the default of 32 is
-    used, so a bad value never crashes the render.
+    `size` must be an integer from 1 to 1024 (pixels). Anything else, including a value above
+    1024, is ignored and the default of 32 is used, so a bad value never crashes the render.
 
     ## Color
 
@@ -59,6 +68,7 @@ if Code.ensure_loaded?(Phoenix.Component) do
     alias MerchantIcons.Merchant
 
     @default_size 32
+    @max_size 1024
 
     # Deterministic badge backgrounds for the initial fallback.
     @palette ~w(#0F766E #1D4ED8 #B91C1C #A21CAF #C2410C #047857 #4338CA #BE123C)
@@ -86,7 +96,7 @@ if Code.ensure_loaded?(Phoenix.Component) do
 
     attr(:size, :integer,
       default: @default_size,
-      doc: "badge size in pixels (positive integer, otherwise #{@default_size})"
+      doc: "badge size in pixels (integer from 1 to #{@max_size}, otherwise #{@default_size})"
     )
 
     attr(:class, :string, default: nil, doc: "extra classes for the outer element")
@@ -123,7 +133,7 @@ if Code.ensure_loaded?(Phoenix.Component) do
       """
     end
 
-    defp valid_size(size) when is_integer(size) and size > 0, do: size
+    defp valid_size(size) when is_integer(size) and size > 0 and size <= @max_size, do: size
     defp valid_size(_size), do: @default_size
 
     # A resolved merchant is used as given; otherwise the description is resolved.

@@ -113,6 +113,28 @@ defmodule MerchantIcons.ComponentsTest do
         assert html =~ "width:32px;height:32px", "size #{inspect(size)} was not ignored"
       end
     end
+
+    test "accepts the bounds 1 and 1024" do
+      assert render_icon(name: "Padaria do Ze", size: 1) =~ "width:1px;height:1px"
+      assert render_icon(name: "Padaria do Ze", size: 1024) =~ "width:1024px;height:1024px"
+    end
+
+    test "ignores integers above 1024" do
+      huge = 10 ** 400
+
+      for size <- [1025, 100_000, 1_000_000_000, huge, -huge] do
+        html = render_icon(name: "Padaria do Ze", size: size)
+
+        assert html =~ "width:32px;height:32px", "size #{inspect(size)} was not ignored"
+      end
+    end
+
+    test "never raises for an absurdly large integer, with or without an icon" do
+      huge = 10 ** 400
+
+      assert render_icon(name: "Padaria do Ze", size: huge) =~ "width:32px;height:32px"
+      assert render_icon(name: "ADOBE", size: huge) =~ "width:32px;height:32px"
+    end
   end
 
   describe "color" do
