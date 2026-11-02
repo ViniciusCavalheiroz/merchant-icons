@@ -16,7 +16,58 @@ defmodule MerchantIcons.ComponentsTest do
 
     assert html =~ "<img"
     assert html =~ "src=\"data:image/svg+xml;base64,"
+    assert html =~ "overflow:hidden;"
     refute html =~ "color:#fff"
+  end
+
+  test "renders the ClickHouse icon" do
+    html = render_icon(name: "Clickhouse")
+
+    assert html =~ "<img"
+    assert html =~ "src=\"data:image/svg+xml;base64,"
+    assert html =~ "width:32px;height:32px;border-radius:9999px;overflow:hidden;"
+    assert html =~ "style=\"width:23px;height:23px;object-fit:contain;\""
+
+    assert [_, encoded_svg] =
+             Regex.run(~r/src="data:image\/svg\+xml;base64,([^"]+)"/, html)
+
+    assert Base.decode64!(encoded_svg) =~ ~s|viewBox="0 0 24 24"|
+    refute html =~ "color:#fff"
+  end
+
+  test "insets merchant logos inside circular badges" do
+    for name <- ["Anthropic", "Cloudflare"] do
+      html = render_icon(name: name)
+
+      assert html =~ "width:32px;height:32px;border-radius:9999px;overflow:hidden;"
+
+      assert html =~ "style=\"width:23px;height:23px;object-fit:contain;\"",
+             "#{name} was not inset inside the badge"
+    end
+  end
+
+  test "renders the Netflix icon" do
+    html = render_icon(name: "Netflix")
+
+    assert html =~ "<img"
+    assert html =~ "src=\"data:image/svg+xml;base64,"
+    assert html =~ "width:32px;height:32px;border-radius:9999px;overflow:hidden;"
+    assert html =~ "style=\"width:23px;height:23px;object-fit:contain;\""
+
+    assert [_, encoded_svg] =
+             Regex.run(~r/src="data:image\/svg\+xml;base64,([^"]+)"/, html)
+
+    svg = Base.decode64!(encoded_svg)
+    assert svg =~ ~s|viewBox="0 0 256 256"|
+    assert svg =~ ~s|fill="#E50914"|
+    refute html =~ "color:#fff"
+  end
+
+  test "keeps the square Twilio logo inset in its badge" do
+    html = render_icon(name: "Twilio")
+
+    assert html =~ "width:32px;height:32px;border-radius:9999px;overflow:hidden;"
+    assert html =~ "style=\"width:23px;height:23px;object-fit:contain;\""
   end
 
   test "defaults the img alt text to the resolved merchant name" do
