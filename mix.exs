@@ -10,7 +10,7 @@ defmodule MerchantIcons.MixProject do
       version: @version,
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
-      # test/helpers holds modules loaded by test_helper.exs, not test files.
+      # test/helpers holds modules loaded by test_helper.exs, not test files
       test_ignore_filters: [&String.starts_with?(&1, "test/helpers/")],
       description: description(),
       package: package(),
