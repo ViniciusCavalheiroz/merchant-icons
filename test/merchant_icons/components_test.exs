@@ -4,7 +4,8 @@ defmodule MerchantIcons.ComponentsTest do
   import Phoenix.LiveViewTest
 
   @valid_fallback ~s|<svg viewBox="0 0 1 1" xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>|
-  @invalid_fallback ~s|<svg viewBox="0 0 1 1"><script>alert(1)</script></svg>|
+  @invalid_fallback ~s|<p>not an svg</p>|
+  @exported_fallback ~s|<?xml version="1.0" encoding="UTF-8"?>\n<!-- exported -->\n<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><style>.a{fill:red}</style><text>&amp;</text></svg>|
 
   defp render_icon(assigns) do
     render_component(&MerchantIcons.Components.merchant_icon/1, assigns)
@@ -38,11 +39,38 @@ defmodule MerchantIcons.ComponentsTest do
     assert html =~ ">P</span>"
   end
 
-  test "falls back to the initial when the fallback svg is invalid" do
-    html = render_icon(name: "Padaria do Ze", fallback: @invalid_fallback)
+  test "accepts a fallback svg with an xml declaration, comments, entities and no viewBox" do
+    html = render_icon(name: "Padaria do Ze", fallback: @exported_fallback)
 
-    refute html =~ "<img"
-    assert html =~ ">P</span>"
+    assert html =~ "<img"
+    assert html =~ "src=\"data:image/svg+xml;base64,"
+  end
+
+  test "falls back to the initial when the fallback is not an svg document" do
+    for fallback <- [
+          @invalid_fallback,
+          "",
+          <<0xFF, 0xFE>>,
+          "<svg",
+          "<svgfoo/>",
+          "<svg " <> String.duplicate("a", 100_001)
+        ] do
+      html = render_icon(name: "Padaria do Ze", fallback: fallback)
+
+      refute html =~ "<img"
+      assert html =~ ">P</span>"
+    end
+  end
+
+  test "a fallback with active content is only ever rendered as an img data URI" do
+    fallback =
+      ~s|<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(1)</script></svg>|
+
+    html = render_icon(name: "Padaria do Ze", fallback: fallback)
+
+    assert html =~ ~s|<img src="data:image/svg+xml;base64,|
+    refute html =~ "<script"
+    refute html =~ "onload"
   end
 
   test "applies the given size to the badge dimensions" do
