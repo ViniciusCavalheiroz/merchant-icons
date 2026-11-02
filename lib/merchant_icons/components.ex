@@ -2,6 +2,10 @@
 # dependency). Projects that use MerchantIcons purely as a resolver never pull Phoenix in.
 if Code.ensure_loaded?(Phoenix.Component) do
   defmodule MerchantIcons.Components do
+    # Maximum size of a caller `fallback` SVG, in bytes. It is sent as base64 in the HTML of every
+    # row that uses it, so it is kept apart from the limit of the bundled icons.
+    @max_fallback_bytes 100_000
+
     @moduledoc """
     Phoenix function components for rendering merchant icons.
 
@@ -14,17 +18,18 @@ if Code.ensure_loaded?(Phoenix.Component) do
     ## Fallback order
 
       1. the merchant's bundled icon, when the description resolves to one;
-      2. the `fallback` SVG markup given by the caller, when it passes validation (a defensive
-         layer, see below);
+      2. the `fallback` SVG markup given by the caller, when it looks like an SVG document (see
+         below);
       3. a badge with the first letter of the merchant/description name.
 
     ## Fallback SVG
 
-    The `fallback` markup is checked with the same strict, text-based rules as the bundled icons
-    and, when it passes, is rendered only through an `<img>` (as a `data:` URI). Invalid markup is
-    ignored. The check is a defensive layer, not a general SVG sanitizer, and the supported way to
-    render a fallback is this component. Do not pass untrusted SVG to `Phoenix.HTML.raw/1` or
-    inline it in the page.
+    The `fallback` markup is rendered only through an `<img>` (as a `data:` URI), where browsers
+    run no scripts and load no external resources. Any ordinary SVG works, including files with an
+    XML declaration, comments, entities, `<style>` or `<text>`. The only checks are that it is
+    valid UTF-8, within #{@max_fallback_bytes} bytes and contains an `<svg` element;
+    anything else is ignored. It is not sanitized, so the supported way to render it is this
+    component. Do not pass untrusted SVG to `Phoenix.HTML.raw/1` or inline it in the page.
 
     ## Resolving once
 
@@ -64,7 +69,6 @@ if Code.ensure_loaded?(Phoenix.Component) do
 
     use Phoenix.Component
 
-    alias MerchantIcons.Icons
     alias MerchantIcons.Merchant
 
     @default_size 32
@@ -150,14 +154,36 @@ if Code.ensure_loaded?(Phoenix.Component) do
     defp icon_src(%Merchant{icon: icon} = merchant, _fallback) when is_binary(icon),
       do: MerchantIcons.icon_data_uri(merchant)
 
+    # The fallback is only ever rendered through `<img>`, where the browser runs no scripts and
+    # loads no resources, so it is not held to the strict rules of the bundled icons. It just has
+    # to contain an `<svg` element.
     defp icon_src(_merchant, fallback) when is_binary(fallback) do
-      case Icons.validate(fallback) do
-        {:ok, svg} -> to_data_uri(svg)
-        {:error, _reason} -> nil
+      case svg_document?(fallback) do
+        true -> to_data_uri(fallback)
+        false -> nil
       end
     end
 
     defp icon_src(_merchant, _fallback), do: nil
+
+    defp svg_document?(svg) do
+      byte_size(svg) <= @max_fallback_bytes and String.valid?(svg) and svg_element?(svg)
+    end
+
+    # An `<svg` that is a whole element name: `<svgfoo>` and a truncated `<svg` do not count.
+    defp svg_element?(svg) do
+      svg
+      |> :binary.matches("<svg")
+      |> Enum.any?(fn {position, _length} ->
+        case svg do
+          <<_before::binary-size(^position), "<svg", next, _rest::binary>> ->
+            next in [?\s, ?\t, ?\n, ?\r, ?>, ?/]
+
+          _other ->
+            false
+        end
+      end)
+    end
 
     defp to_data_uri(svg), do: "data:image/svg+xml;base64," <> Base.encode64(svg)
 

@@ -53,7 +53,7 @@ Add `merchant_icons` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:merchant_icons, "~> 0.4.2"}
+    {:merchant_icons, "~> 0.4.3"}
   ]
 end
 ```
@@ -147,8 +147,8 @@ colored background, so `color` does not apply to it.
 **Fallback order**, when the description has no bundled icon:
 
 1. the merchant's icon, when the description resolves to one;
-2. the `fallback` SVG markup you pass (checked with the same defensive validation as the bundled
-   icons and rendered only as an `<img>`; invalid markup is ignored);
+2. the `fallback` SVG markup you pass (any ordinary SVG, rendered only as an `<img>`; it must be
+   valid UTF-8, within the size limit and contain an `<svg` element, otherwise it is ignored);
 3. a badge with the first letter of the merchant/description name.
 
 ### Optional dependency
@@ -189,9 +189,8 @@ Render icons as images, not as inline markup:
 
 Inlining `merchant.icon` yourself is not the recommended path, and the supported way to show any
 icon, including a `fallback`, is the `<img>` rendering above. The bundled files are checked when
-the library compiles, and a `fallback` is checked with the same rules at render time, but this
-validation is a defensive layer that works on the text of the file. It is not a general SVG
-sanitizer, so do not pass SVG from other sources to `Phoenix.HTML.raw/1` or inline it in the page.
+the library compiles. A `fallback` is not sanitized, since the `<img>` rendering is what keeps it
+inert, so do not pass SVG from other sources to `Phoenix.HTML.raw/1` or inline it in the page.
 
 ## Input and output
 
