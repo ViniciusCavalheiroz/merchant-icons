@@ -130,4 +130,73 @@ defmodule MerchantIcons.Matching.MatcherTest do
       assert match("ACME FOODS", Fixture.index()) == match("ACME FOODS", Fixture.index())
     end
   end
+
+  test "prefers the longer leading alias when both aliases match" do
+    definitions = [
+      %{
+        id: "google",
+        name: "Google",
+        aliases: [{"google", :leading}]
+      },
+      %{
+        id: "google_one",
+        name: "Google One",
+        aliases: [{"google one", :leading}]
+      }
+    ]
+
+    index = Index.build(definitions, prefixes: [])
+
+    assert {:ok, %Merchant{id: "google_one"}} =
+             match("GOOGLE ONE STORAGE", index)
+  end
+
+  test "longer alias wins regardless of definition order" do
+    generic = %{
+      id: "google",
+      name: "Google",
+      aliases: [{"google", :leading}]
+    }
+
+    specific = %{
+      id: "google_one",
+      name: "Google One",
+      aliases: [{"google one", :leading}]
+    }
+
+    for definitions <- [[generic, specific], [specific, generic]] do
+      index = Index.build(definitions, prefixes: [])
+
+      assert {:ok, %Merchant{id: "google_one"}} =
+               match("GOOGLE ONE STORAGE", index)
+    end
+  end
+
+  test "does not confuse Disney+ with The Walt Disney Company" do
+    definitions = [
+      %{
+        id: "disney_plus",
+        name: "Disney+",
+        aliases: [
+          {"disney plus", :leading},
+          {"disneyplus", :leading}
+        ]
+      },
+      %{
+        id: "disney",
+        name: "Disney",
+        aliases: [
+          {"the walt disney company", :leading}
+        ]
+      }
+    ]
+
+    index = Index.build(definitions, prefixes: [])
+
+    assert {:ok, %Merchant{id: "disney_plus"}} =
+             match("DISNEY PLUS", index)
+
+    assert {:ok, %Merchant{id: "disney"}} =
+             match("THE WALT DISNEY COMPANY", index)
+  end
 end
