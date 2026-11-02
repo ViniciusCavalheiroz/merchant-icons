@@ -8,6 +8,7 @@ defmodule MerchantIcons.Data.Merchants do
   #
   #   * `:leading` - the alias must start the description (after a processor prefix, if any).
   #                  Whatever follows is unconstrained. Used for distinctive names.
+  #
   #   * `:whole`   - the alias must account for every token left after the processor prefix;
   #                  only digits-only tokens may follow. Used for short or generic names that
   #                  would otherwise match unrelated descriptions.
@@ -327,7 +328,7 @@ defmodule MerchantIcons.Data.Merchants do
     %{
       id: "clickhouse",
       name: "ClickHouse",
-      icon: nil,
+      icon: "clickhouse",
       aliases: [{"clickhouse", :leading}]
     },
     %{id: "blackbox", name: "Blackbox", icon: nil, aliases: [{"blackbox", :leading}]},
@@ -440,7 +441,15 @@ defmodule MerchantIcons.Data.Merchants do
     },
     %{id: "genspark", name: "Genspark", icon: nil, aliases: [{"genspark", :leading}]},
     %{id: "netlify", name: "Netlify", icon: nil, aliases: [{"netlify", :leading}]},
-    %{id: "spotify", name: "Spotify", icon: "spotify", aliases: [{"spotify", :leading}]}
+    %{id: "spotify", name: "Spotify", icon: "spotify", aliases: [{"spotify", :leading}]},
+    %{
+      id: "netflix",
+      name: "Netflix",
+      icon: "netflix",
+      aliases: [
+        {"netflix", :leading}
+      ]
+    }
   ]
 
   @spec all() :: [MerchantIcons.Matching.Index.definition()]

@@ -47,7 +47,9 @@ defmodule MerchantIcons.BundledIconsTest do
     "twilio" => "twilio",
     "uber" => "uber_icon_light",
     "vercel" => "vercel",
-    "lovable" => "lovable"
+    "lovable" => "lovable",
+    "netflix" => "netflix",
+    "clickhouse" => "clickhouse"
   }
 
   @prefixes ["DL", "DM", "EBN", "PPRO"]
