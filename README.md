@@ -53,7 +53,7 @@ Add `merchant_icons` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:merchant_icons, "~> 0.4.4"}
+    {:merchant_icons, "~> 0.4.5"}
   ]
 end
 ```
